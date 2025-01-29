@@ -1,18 +1,14 @@
 import logging
 from typing import Optional
 from urllib.parse import urlparse
-from config import Config
 
 logger = logging.getLogger(__name__)
 
 
 def clean_url(url: str) -> Optional[str]:
     """Clean and validate URL"""
-    if not url:
-        return None
-
     if not url.startswith(("http://", "https://")):
-        url = "http://" + url
+        return None
 
     try:
         parsed = urlparse(url)
@@ -23,20 +19,27 @@ def clean_url(url: str) -> Optional[str]:
         return None
 
 
-def handle_promotion(stage, client, user_id):
+def handle_promotion(client, user_id, current, next, status_emoji, token):
     """Handle user promotion to next stage"""
-    try:
-        # for channel in Config.STAGE_CHANNELS[stage]["current"]:
-        #     client.conversations_kick(channel=channel, user=user_id, token=Config.SLACK_USER_TOKEN)
+    for channel in current:
+        try:
+            client.conversations_kick(
+                channel=channel, user=user_id, token=token
+            )
+        except Exception as e:
+            logger.error(
+                f"Error kicking user from channel {channel}: {str(e)}"
+            )
 
-        for channel in Config.STAGE_CHANNELS[stage]["next"]:
+    for channel in next:
+        try:
             client.conversations_invite(channel=channel, users=user_id)
+        except Exception as e:
+            logger.error(f"Error inviting user to channel {channel}: {str(e)}")
 
-        # client.users_profile_set(
-        #     user=user_id,
-        #     profile={"status_emoji": Config.STAGE_STATUS_EMOJIS[stage + 1]},
-        #     token=Config.SLACK_USER_TOKEN
-        # )
+    try:
+        client.users_profile_set(
+            user=user_id, profile={"status_emoji": status_emoji}, token=token
+        )
     except Exception as e:
-        logger.error(f"Promotion error: {str(e)}")
-        raise
+        logger.error(f"Error setting user profile: {str(e)}")
