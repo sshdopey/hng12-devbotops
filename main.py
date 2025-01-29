@@ -30,29 +30,54 @@ def handle_submit(ack, body, client):
     """Handle the /submit command"""
     try:
         ack()
-
-        stage = Config.get_stage_for_channel(body["channel_id"])
+        channel_id = body["channel_id"]
+        trigger_id = body["trigger_id"]
+        stage = Config.get_stage_for_channel(channel_id)
         if stage is None:
-            client.chat_postEphemeral(
-                channel=body["channel_id"],
-                user=body["user_id"],
-                text="Wrong channel! 🙈 Head to the right devops stage channel to submit!",
+            client.views_open(
+                trigger_id=trigger_id,
+                view={
+                    "type": "modal",
+                    "title": {"type": "plain_text", "text": "Channel Error"},
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": f"The */submit* command cannot be used in <#{body['channel_id']}> 🙈.\nPlease head to the right devops stage channel to submit!",
+                            },
+                        }
+                    ],
+                },
             )
             return
 
         handler = STAGE_HANDLERS.get(stage)
         if not handler:
-            client.chat_postEphemeral(
-                channel=body["channel_id"],
-                user=body["user_id"],
-                text="I'm not ready to grade this stage! 🏗️ Check back later ☕",
+            client.views_open(
+                trigger_id=trigger_id,
+                view={
+                    "type": "modal",
+                    "title": {
+                        "type": "plain_text",
+                        "text": "Stage Not Available",
+                    },
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "I'm not ready to grade this stage! 🏗️ Check back later",
+                            },
+                        }
+                    ],
+                },
             )
             return
 
-        view = handler.create_modal_view(
-            body["trigger_id"], body["channel_id"]
+        client.views_open(
+            trigger_id=trigger_id, view=handler.create_modal_view(channel_id)
         )
-        client.views_open(trigger_id=body["trigger_id"], view=view)
 
     except Exception as e:
         logger.error(f"Error handling submit command: {str(e)}")

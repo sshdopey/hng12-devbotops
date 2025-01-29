@@ -8,7 +8,7 @@ from utils import clean_url, handle_promotion
 
 class StageZeroHandler:
     @classmethod
-    def create_modal_view(cls, trigger_id: str, channel_id: str) -> dict:
+    def create_modal_view(cls, channel_id: str) -> dict:
         return {
             "type": "modal",
             "title": {
