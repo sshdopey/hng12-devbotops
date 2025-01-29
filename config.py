@@ -14,7 +14,6 @@ class Config:
     SLACK_USER_TOKEN = os.getenv("SLACK_USER_TOKEN")
     SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
     SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
-    DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///submissions.db")
 
     STAGE_CHANNELS = {
         0: {
