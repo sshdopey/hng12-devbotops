@@ -3,7 +3,6 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from config import Config, logger
 from stage_zero import StageZeroHandler
-from utils import init_db
 
 app = App(
     token=Config.SLACK_BOT_TOKEN, signing_secret=Config.SLACK_SIGNING_SECRET
@@ -86,8 +85,6 @@ def handle_submission(ack, body, client):
 def main():
     """Main entry point"""
     try:
-        init_db()
-
         handler = SocketModeHandler(app, Config.SLACK_APP_TOKEN)
         handler.start()
     except Exception as e:

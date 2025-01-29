@@ -55,14 +55,17 @@ class StageZeroHandler:
 
             message = cls.format_response(result, user_id)
 
-            if result.get("score", 0) == 2:
+            if result.get("score", 0) == 3:
                 try:
+                    logger.debug("promotion")
                     handle_promotion(0, client, user_id)
                 except Exception as e:
                     logger.error(f"Promotion error: {str(e)}")
                     message += (
                         "\n\n⚠️ Promotion error. Please contact an admin."
                     )
+            else:
+                logger.debug(result)
             client.chat_postEphemeral(
                 channel=channel_id, user=user_id, text=message
             )
