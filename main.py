@@ -2,16 +2,15 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from config import Config, logger
-from stage_zero import StageZeroHandler
+from stages.stage_0 import StageZero
+from stages.stage_1 import StageOne
+from utils import get_stage
 
 app = App(
     token=Config.SLACK_BOT_TOKEN, signing_secret=Config.SLACK_SIGNING_SECRET
 )
 
-STAGE_HANDLERS = {
-    0: StageZeroHandler,
-    # Add more stage handlers later
-}
+stages = {0: StageZero, 1: StageOne}
 
 
 @app.event("message")
@@ -32,7 +31,8 @@ def handle_submit(ack, body, client):
         ack()
         channel_id = body["channel_id"]
         trigger_id = body["trigger_id"]
-        stage = Config.get_stage_for_channel(channel_id)
+        stage = get_stage(stages, channel_id)
+        logger.info(body)
         if stage is None:
             client.views_open(
                 trigger_id=trigger_id,
@@ -52,31 +52,8 @@ def handle_submit(ack, body, client):
             )
             return
 
-        handler = STAGE_HANDLERS.get(stage)
-        if not handler:
-            client.views_open(
-                trigger_id=trigger_id,
-                view={
-                    "type": "modal",
-                    "title": {
-                        "type": "plain_text",
-                        "text": "Stage Not Available",
-                    },
-                    "blocks": [
-                        {
-                            "type": "section",
-                            "text": {
-                                "type": "mrkdwn",
-                                "text": "I'm not ready to grade this stage! 🏗️ Check back later",
-                            },
-                        }
-                    ],
-                },
-            )
-            return
-
         client.views_open(
-            trigger_id=trigger_id, view=handler.create_modal_view(channel_id)
+            trigger_id=trigger_id, view=stage.submission_view(channel_id)
         )
 
     except Exception as e:
@@ -93,16 +70,14 @@ def handle_submission(ack, body, client):
     """Handle submission"""
     try:
         ack()
-        user_id = body["user"]["id"]
-        channel_id, stage = body["view"]["private_metadata"].split(":")
-        stage = int(stage)
-        handler = STAGE_HANDLERS.get(stage)
-        handler.handle_submission(user_id, channel_id, body, client)
+        channel = body["view"]["private_metadata"]
+        stage = get_stage(stages, channel)
+        stage.submit(channel, body, client)
     except Exception as e:
         logger.error(f"Error handling submission: {str(e)}")
         client.chat_postEphemeral(
-            channel=channel_id,
-            user=user_id,
+            channel=channel,
+            user=channel,
             text="🔧 Oops! Something went wrong. Please try again.",
         )
 

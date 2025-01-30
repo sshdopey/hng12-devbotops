@@ -1,22 +1,29 @@
 import logging
-from typing import Optional
 from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
 
-def clean_url(url: str) -> Optional[str]:
+def get_stage(stages, channel: str):
+    """Gets the stage for a channel"""
+    for _, stage in stages.items():
+        if channel in stage.channels:
+            return stage()
+    return None
+
+
+def clean_url(url: str) -> str:
     """Clean and validate URL"""
     if not url.startswith(("http://", "https://")):
-        return None
+        return ""
 
     try:
         parsed = urlparse(url)
         if not parsed.netloc:
-            return None
+            return ""
         return f"{parsed.scheme}://{parsed.netloc}{parsed.path.rstrip('/')}"
-    except:
-        return None
+    except ValueError:
+        return ""
 
 
 def handle_promotion(client, user_id, current, next, status_emoji, token):
