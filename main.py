@@ -32,7 +32,6 @@ def handle_submit(ack, body, client):
         channel_id = body["channel_id"]
         trigger_id = body["trigger_id"]
         stage = get_stage(stages, channel_id)
-        logger.info(body)
         if stage is None:
             client.views_open(
                 trigger_id=trigger_id,
