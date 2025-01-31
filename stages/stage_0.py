@@ -6,7 +6,7 @@ from requests.exceptions import RequestException
 
 from config import Config, logger
 from spreadsheet import Sheet
-from utils import clean_url, handle_promotion
+from utils import handle_promotion
 
 
 class StageZero:
@@ -94,10 +94,8 @@ class StageZero:
             user_id = body["user"]["id"]
             username = body["user"]["name"]
             values = body["view"]["state"]["values"]
-            deployed_url = clean_url(
-                values["deployed_url"]["deployed_url"]["value"]
-            )
-            blog_url = clean_url(values["blog_url"]["blog_url"]["value"])
+            deployed_url = values["deployed_url"]["deployed_url"]["value"]
+            blog_url = values["blog_url"]["blog_url"]["value"]
 
             # Check if user has already been promoted
             submission = self.sheet.get_row("user_id", user_id)
@@ -197,12 +195,12 @@ class StageZero:
     def _check_url_uniqueness(
         self, url: str, url_type: str, user_id: str
     ) -> tuple[bool, str]:
-        """Check if URL has been used by another user."""
+        """Check if URL has been used by another intern."""
         submission = self.sheet.get_row(url_type, url)
         if submission and submission[1].get("user_id") != user_id:
             return (
                 False,
-                f"This {url_type.replace('_', ' ')} has already been submitted by another user.",
+                f"This {url_type.replace('_', ' ')} has already been submitted by another intern.",
             )
         return True, ""
 
