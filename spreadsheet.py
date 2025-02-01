@@ -78,8 +78,6 @@ class Sheet:
             cell = f"{col_letter}{row_number}"
             updates.append({"range": cell, "values": [[value]]})
 
-        [{"range": "A12", "values": "skfdsl"}]
-
         body = {"valueInputOption": "RAW", "data": updates}
 
         self.service.spreadsheets().values().batchUpdate(
