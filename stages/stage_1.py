@@ -1,8 +1,9 @@
+import json
 from datetime import datetime
 from typing import Any
+
+import pytz
 import requests
-from requests.exceptions import RequestException
-import json
 
 from config import Config, logger
 from spreadsheet import Sheet
@@ -16,6 +17,10 @@ class StageOne:
     channels = ["C08AHHWBTK8"]
     next_channels = ["C08AHHWBTK8", "C08B3UKM0QN"]
     required_score = 6
+    wat_tz = pytz.timezone("Africa/Lagos")
+    deadline = wat_tz.localize(
+        datetime.strptime("2025-02-07 23:59:59", "%Y-%m-%d %H:%M:%S")
+    )
 
     test_cases = [
         {"number": "371", "expected_properties": ["armstrong", "odd"]},
@@ -27,7 +32,7 @@ class StageOne:
     ]
 
     sheet = Sheet(
-        "1u5-JU71GkCOlYf7nAWdJWxoJpzNcDiKlqfB4aZDmDiAg",
+        "1mq_WtbIoRPwHhHajcI2seAtgN4oI7ya2rAnmx1rjffg",
         {
             "A": "timestamp",
             "B": "username",
@@ -42,10 +47,39 @@ class StageOne:
 
     def submission_view(self, channel: str) -> dict:
         """Returns the Slack modal view for Stage 1 submission."""
+        now = datetime.now(self.wat_tz)
+        if now > self.deadline:
+            return {
+                "type": "modal",
+                "title": {"type": "plain_text", "text": "DevOps Stage 1"},
+                "blocks": [
+                    {
+                        "type": "section",
+                        "text": {
+                            "type": "mrkdwn",
+                            "text": "❌ The deadline for Stage 1 submissions has passed.",
+                        },
+                    }
+                ],
+                "close": {"type": "plain_text", "text": "Close"},
+            }
+
+        time_left = self.deadline - now
+        days = time_left.days
+        hours = time_left.seconds // 3600
+        minutes = (time_left.seconds % 3600) // 60
+
         return {
             "type": "modal",
             "title": {"type": "plain_text", "text": "DevOps Stage 1"},
             "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": f"⏰ Time remaining: {days} days, {hours} hours, {minutes} minutes",
+                    },
+                },
                 {
                     "type": "input",
                     "block_id": "api_url",
@@ -91,7 +125,6 @@ class StageOne:
             api_url = values["api_url"]["api_url"]["value"]
             github_url = values["github_url"]["github_url"]["value"]
 
-            # Check if user has already been promoted
             submission = self.sheet.get_row("user_id", user_id)
             if submission and submission[1].get("promoted") == "1":
                 client.chat_postEphemeral(
@@ -101,7 +134,6 @@ class StageOne:
                 )
                 return
 
-            # Validate URL uniqueness
             for url, url_type in [
                 (api_url, "api_url"),
                 (github_url, "github_url"),
@@ -117,11 +149,9 @@ class StageOne:
                     )
                     return
 
-            # Grade submission
             score, result = self._grade_submission(api_url)
             promoted = score >= self.required_score
 
-            # Update or create submission record
             timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
             if submission:
                 current_trials = int(submission[1].get("trials", 0))
@@ -153,7 +183,7 @@ class StageOne:
                 )
 
             # Handle results and promotion
-            message = self._get_result_message(result, score, user_id, trials)
+            message = self._get_result_message(score, result, user_id, trials)
             if promoted:
                 handle_promotion(
                     client,
@@ -208,202 +238,201 @@ class StageOne:
             test_url = f"{url.rstrip('/')}?number={test_case['number']}"
             response = requests.get(test_url, timeout=10)
 
+            try:
+                result = response.json()
+            except json.JSONDecodeError:
+                return False, None, "Your API must return valid JSON"
+
             if not response.headers.get("Content-Type", "").startswith(
                 "application/json"
             ):
-                return False, None, "Response is not in JSON format"
+                return (
+                    False,
+                    None,
+                    "Response must have Content-Type: application/json header",
+                )
 
-            result = response.json()
-
-            if "error" in test_case:
-                if response.status_code != 400 or not result.get("error"):
+            # Handle error case testing
+            if test_case.get("error_test"):
+                if response.status_code != 400:
                     return (
                         False,
                         result,
-                        "Expected error response for invalid input",
+                        "Invalid input should return 400 status code",
                     )
-            else:
-                if response.status_code != 200:
+                if not isinstance(result.get("number"), str):
                     return (
                         False,
                         result,
-                        f"Expected 200 status code, got {response.status_code}",
+                        "For invalid input, number field should contain the invalid input",
                     )
-
-                if not isinstance(result.get("properties"), list):
-                    return False, result, "Properties should be an array"
-
-                # Check if all expected properties are present
-                missing_props = [
-                    prop
-                    for prop in test_case["expected_properties"]
-                    if prop not in result["properties"]
-                ]
-                if missing_props:
+                if not result.get("error"):
                     return (
                         False,
                         result,
-                        f"Missing properties: {', '.join(missing_props)}",
+                        "Invalid input should have error field set to true",
                     )
+                return True, result, "Success"
+
+            # Handle successful case testing
+            if response.status_code != 200:
+                return (
+                    False,
+                    result,
+                    "Valid input should return 200 status code",
+                )
+
+            checks = [
+                (
+                    lambda: "number" in result,
+                    "Response must include 'number' field",
+                ),
+                (
+                    lambda: isinstance(result.get("number"), (int, float)),
+                    "Number field must be numeric",
+                ),
+                (
+                    lambda: "is_prime" in result,
+                    "Response must include 'is_prime' field",
+                ),
+                (
+                    lambda: isinstance(result.get("is_prime"), bool),
+                    "is_prime must be boolean",
+                ),
+                (
+                    lambda: "is_perfect" in result,
+                    "Response must include 'is_perfect' field",
+                ),
+                (
+                    lambda: isinstance(result.get("is_perfect"), bool),
+                    "is_perfect must be boolean",
+                ),
+                (
+                    lambda: "properties" in result,
+                    "Response must include 'properties' field",
+                ),
+                (
+                    lambda: isinstance(result.get("properties"), list),
+                    "properties must be an array",
+                ),
+                (
+                    lambda: "class_sum" in result,
+                    "Response must include 'class_sum' field",
+                ),
+                (
+                    lambda: isinstance(result.get("class_sum"), (int, float)),
+                    "class_sum must be numeric",
+                ),
+                (
+                    lambda: "fun_fact" in result,
+                    "Response must include 'fun_fact' field",
+                ),
+                (
+                    lambda: isinstance(result.get("fun_fact"), str),
+                    "fun_fact must be a string",
+                ),
+            ]
+
+            for check, message in checks:
+                if not check():
+                    return False, result, message
 
             return True, result, "Success"
 
         except requests.exceptions.RequestException as e:
+            if "Connection refused" in str(e):
+                return (
+                    False,
+                    None,
+                    "Could not connect to your API. Make sure it's running and publicly accessible.",
+                )
+            if "timeout" in str(e):
+                return (
+                    False,
+                    None,
+                    "Your API took too long to respond (>10 seconds)",
+                )
             return False, None, f"Request failed: {str(e)}"
-        except json.JSONDecodeError:
-            return False, None, "Invalid JSON response"
         except Exception as e:
             return False, None, f"Test failed: {str(e)}"
 
-    def _grade_submission(self, api_url: str) -> tuple[int, dict]:
-        """Grade submission based on test cases and requirements."""
-        score = 0
-        result = {
-            "query_params": {"score": 0, "max": 2, "details": []},
-            "basic_props": {"score": 0, "max": 3, "details": []},
-            "special_props": {"score": 0, "max": 3, "details": []},
-            "edge_cases": {"score": 0, "max": 2, "details": []},
-            "test_results": [],
-        }
+    def _grade_submission(self, api_url: str) -> tuple[float, list]:
+        """Grade submission and return score with helpful messages."""
+        total_tests = 0
+        passed_tests = 0
+        messages = []
 
-        for test_case in self.test_cases:
-            success, response, message = self._test_endpoint(
-                api_url, test_case
+        # Test basic JSON response
+        success, _, message = self._test_endpoint(api_url, {"number": "123"})
+        if not success:
+            return 0, [
+                "❌ Your API isn't returning valid JSON responses.",
+                f"Details: {message}",
+                "📝 Make sure your API:",
+                "   • Returns valid JSON",
+                "   • Sets Content-Type: application/json header",
+                "   • Is publicly accessible",
+            ]
+
+        # Test structure and format
+        total_tests += 6  # One test for each field
+        test_case = {"number": "42"}
+        success, response, message = self._test_endpoint(api_url, test_case)
+        if success:
+            passed_tests += 6
+        else:
+            messages.extend(
+                [
+                    "❌ Your API response is missing required fields or has incorrect formats.",
+                    f"Details: {message}",
+                    "📝 Check that your response includes all required fields with correct types:",
+                ]
             )
-            result["test_results"].append(
-                {
-                    "test_case": test_case,
-                    "success": success,
-                    "response": response,
-                    "message": message,
-                }
+
+        # Test error handling
+        total_tests += 2
+        test_case = {"number": "abc", "error_test": True}
+        success, _, message = self._test_endpoint(api_url, test_case)
+        if success:
+            passed_tests += 2
+        else:
+            messages.extend(
+                [
+                    "❌ Your error handling needs improvement.",
+                    f"Details: {message}",
+                    "📝 For invalid input, return:",
+                    "   • Status code 400",
+                    "   • JSON with number and error fields",
+                ]
             )
 
-            if success:
-                # Query Parameter Handling (2 points)
-                if test_case.get("number") == "abc":
-                    result["query_params"]["score"] += 2
-                    result["query_params"]["details"].append(
-                        "✅ Properly handles invalid input"
-                    )
+        score = (passed_tests / total_tests) * 6  # Scale to 6 points
 
-                # Basic Properties (3 points)
-                if "expected_properties" in test_case:
-                    if "prime" in test_case["expected_properties"] and (
-                        "prime" in response["properties"]
-                    ):
-                        result["basic_props"]["score"] += 1
-                        result["basic_props"]["details"].append(
-                            "✅ Correct prime check"
-                        )
-                    if "perfect" in test_case["expected_properties"] and (
-                        "perfect" in response["properties"]
-                    ):
-                        result["basic_props"]["score"] += 1
-                        result["basic_props"]["details"].append(
-                            "✅ Correct perfect number check"
-                        )
-                    if any(
-                        prop in ["odd", "even"]
-                        for prop in test_case["expected_properties"]
-                    ):
-                        result["basic_props"]["score"] += 1
-                        result["basic_props"]["details"].append(
-                            "✅ Correct odd/even classification"
-                        )
+        if not messages:  # All tests passed
+            messages = [
+                "✅ Your API is working perfectly! It:",
+                "   • Returns valid JSON responses",
+                "   • Includes all required fields",
+                "   • Handles errors correctly",
+                "   • Uses proper status codes",
+            ]
+            if score >= 6:
+                messages.append("\n🎉 Congratulations! You've passed Stage 1!")
 
-                # Special Properties (3 points)
-                if (
-                    "armstrong" in test_case.get("expected_properties", [])
-                    and "armstrong" in response["properties"]
-                ):
-                    result["special_props"]["score"] += 1
-                    result["special_props"]["details"].append(
-                        "✅ Correct Armstrong number check"
-                    )
-                if "class_sum" in response:
-                    result["special_props"]["score"] += 1
-                    result["special_props"]["details"].append(
-                        "✅ Implements digit sum calculation"
-                    )
-                if isinstance(response.get("properties"), list):
-                    result["special_props"]["score"] += 1
-                    result["special_props"]["details"].append(
-                        "✅ Properties returned as array"
-                    )
-
-                # Edge Cases (2 points)
-                if (
-                    test_case["number"].startswith("-")
-                    or test_case["number"] == "0"
-                ):
-                    result["edge_cases"]["score"] += 1
-                    result["edge_cases"]["details"].append(
-                        "✅ Handles edge cases correctly"
-                    )
-
-        # Calculate total score
-        score = sum(
-            category["score"]
-            for category in result.values()
-            if isinstance(category, dict) and "score" in category
-        )
-
-        return score, result
+        return score, messages
 
     def _get_result_message(
-        self, result: dict, score: int, user_id: str, trials: int
+        self, score: float, messages: list, user_id: str, trials: int
     ) -> str:
-        """Generate detailed submission result message."""
-        message = [
-            f"<@{user_id}> Stage 1 Results (Attempt #{trials}):\n",
-            "📋 Grading Summary:",
-            f"Query Parameter Handling: {result['query_params']['score']}/{result['query_params']['max']} points",
-            f"Basic Properties: {result['basic_props']['score']}/{result['basic_props']['max']} points",
-            f"Special Properties: {result['special_props']['score']}/{result['special_props']['max']} points",
-            f"Edge Cases: {result['edge_cases']['score']}/{result['edge_cases']['max']} points",
-            f"\nTotal Score: {score}/10 points (Required: {self.required_score})\n",
-        ]
+        """Generate a clear, encouraging feedback message."""
+        status = "🎯 Almost there!" if score > 0 else "🚀 Let's get started!"
+        if score >= 6:
+            status = "🌟 Success!"
 
-        # Add details for each category
-        for category in [
-            "query_params",
-            "basic_props",
-            "special_props",
-            "edge_cases",
-        ]:
-            if result[category]["details"]:
-                message.extend(result[category]["details"])
-
-        # Add test case results
-        message.append("\n🧪 Test Cases:")
-        for test_result in result["test_results"]:
-            status = "✅" if test_result["success"] else "❌"
-            message.append(
-                f"{status} Test case {test_result['test_case']['number']}: {test_result['message']}"
-            )
-
-        if score < self.required_score:
-            message.append("\n📝 Areas for Improvement:")
-            if result["query_params"]["score"] < result["query_params"]["max"]:
-                message.append("• Improve input validation and error handling")
-            if result["basic_props"]["score"] < result["basic_props"]["max"]:
-                message.append(
-                    "• Review implementation of basic number properties"
-                )
-            if (
-                result["special_props"]["score"]
-                < result["special_props"]["max"]
-            ):
-                message.append("• Enhance special number properties detection")
-            if result["edge_cases"]["score"] < result["edge_cases"]["max"]:
-                message.append("• Add better handling of edge cases")
-            message.append(
-                "\n💡 Review the requirements and resubmit when ready!"
-            )
-        else:
-            message.append(
-                f"\n🎉 Congratulations! You've completed Stage 1 in {trials} {'attempt' if trials == 1 else 'attempts'}!"
-            )
-
-        return "\n".join(message)
+        return (
+            f"<@{user_id}> Stage 1 Results (Attempt #{trials})\n\n"
+            f"{status}\n"
+            f"Score: {score:.1f}/6.0\n\n"
+            f"{chr(10).join(messages)}\n\n"
+            f"{'💡 Fix these issues and try again!' if score < 6 else '🎊 Proceed to the next stage!'}"
+        )

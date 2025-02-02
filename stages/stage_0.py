@@ -14,7 +14,7 @@ class StageZero:
 
     emoji = ":zero:"
     channels = ["C089GSHEMFT"]
-    next_channels = ["C089GSHEMFT", "C08AHHWBTK8", "C0896LQJPDJ"]
+    next_channels = ["C089GSHEMFT", "C08AHHWBTK8", "C08B3UKM0QN"]
     required_score = 5
     expected_text = "Welcome to DevOps Stage 0"
 
