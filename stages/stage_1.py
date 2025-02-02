@@ -15,7 +15,7 @@ class StageOne:
 
     emoji = ":one:"
     channels = ["C08AHHWBTK8"]
-    next_channels = ["C08BAAHFAUV"]
+    next_channels = ["C08BAAHFAUV", "C08AYKQ9AQ7"]
     required_score = 6
     wat_tz = pytz.timezone("Africa/Lagos")
     deadline = wat_tz.localize(
@@ -126,7 +126,10 @@ class StageOne:
             github_url = values["github_url"]["github_url"]["value"]
 
             submission = self.sheet.get_row("user_id", user_id)
-            if submission and float(submission[1].get("score", 0)) >= self.required_score:
+            if (
+                submission
+                and float(submission[1].get("score", 0)) >= self.required_score
+            ):
                 client.chat_postEphemeral(
                     channel=channel,
                     user=user_id,
@@ -158,7 +161,7 @@ class StageOne:
                 trials = current_trials + 1
                 current_best_score = float(submission[1].get("score", 0))
                 best_score = max(current_best_score, score)
-                
+
                 self.sheet.update(
                     submission[0],
                     {
