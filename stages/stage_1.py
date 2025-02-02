@@ -41,7 +41,7 @@ class StageOne:
             "E": "api_url",
             "F": "github_url",
             "G": "score",
-            "H": "promoted",
+            "H": "promoted",  # We'll keep this column but use it differently
         },
     )
 
@@ -126,11 +126,11 @@ class StageOne:
             github_url = values["github_url"]["github_url"]["value"]
 
             submission = self.sheet.get_row("user_id", user_id)
-            if submission and submission[1].get("promoted") == "1":
+            if submission and float(submission[1].get("score", 0)) >= self.required_score:
                 client.chat_postEphemeral(
                     channel=channel,
                     user=user_id,
-                    text="🎉 You have already passed Stage 1! No need to submit again.",
+                    text="🎉 You have already achieved a perfect score in Stage 1! No need to submit again.",
                 )
                 return
 
@@ -150,20 +150,22 @@ class StageOne:
                     return
 
             score, result = self._grade_submission(api_url)
-            promoted = score >= self.required_score
+            achieved_required_score = score >= self.required_score
 
             timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
             if submission:
                 current_trials = int(submission[1].get("trials", 0))
                 trials = current_trials + 1
+                current_best_score = float(submission[1].get("score", 0))
+                best_score = max(current_best_score, score)
+                
                 self.sheet.update(
                     submission[0],
                     {
                         "timestamp": timestamp,
                         "api_url": api_url,
                         "github_url": github_url,
-                        "score": str(score),
-                        "promoted": "1" if promoted else "0",
+                        "score": str(best_score),  # Store the best score achieved
                         "trials": str(trials),
                     },
                 )
@@ -177,14 +179,13 @@ class StageOne:
                         "api_url": api_url,
                         "github_url": github_url,
                         "score": str(score),
-                        "promoted": "1" if promoted else "0",
                         "trials": "1",
                     }
                 )
 
             # Handle results and promotion
             message = self._get_result_message(score, result, user_id, trials)
-            if promoted:
+            if achieved_required_score:
                 handle_promotion(
                     client,
                     user_id,
