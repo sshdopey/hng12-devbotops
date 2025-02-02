@@ -39,9 +39,7 @@ class StageOne:
             "C": "user_id",
             "D": "trials",
             "E": "api_url",
-            "F": "github_url",
-            "G": "score",
-            "H": "promoted",  # We'll keep this column but use it differently
+            "F": "score",
         },
     )
 
@@ -81,31 +79,25 @@ class StageOne:
                     },
                 },
                 {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "ℹ️ Please submit the *complete endpoint URL* for your number classification API, including the path (e.g., `https://your-domain.com/api/classify-number`).",
+                    },
+                },
+                {
                     "type": "input",
                     "block_id": "api_url",
-                    "label": {"type": "plain_text", "text": "API URL"},
+                    "label": {
+                        "type": "plain_text",
+                        "text": "API Endpoint URL",
+                    },
                     "element": {
                         "type": "plain_text_input",
                         "action_id": "api_url",
                         "placeholder": {
                             "type": "plain_text",
-                            "text": "Enter your API endpoint URL (e.g., https://your-api.com/api/classify-number)",
-                        },
-                    },
-                },
-                {
-                    "type": "input",
-                    "block_id": "github_url",
-                    "label": {
-                        "type": "plain_text",
-                        "text": "GitHub Repository URL",
-                    },
-                    "element": {
-                        "type": "plain_text_input",
-                        "action_id": "github_url",
-                        "placeholder": {
-                            "type": "plain_text",
-                            "text": "Enter your GitHub repository URL",
+                            "text": "https://your-domain.com/api/classify-number",
                         },
                     },
                 },
@@ -123,8 +115,8 @@ class StageOne:
             username = body["user"]["name"]
             values = body["view"]["state"]["values"]
             api_url = values["api_url"]["api_url"]["value"]
-            github_url = values["github_url"]["github_url"]["value"]
 
+            # Check for perfect score first
             submission = self.sheet.get_row("user_id", user_id)
             if (
                 submission
@@ -133,24 +125,19 @@ class StageOne:
                 client.chat_postEphemeral(
                     channel=channel,
                     user=user_id,
-                    text="🎉 You have already achieved a perfect score in Stage 1! No need to submit again.",
+                    text="🎉 Congratulations! You've already achieved a perfect score in Stage 1! You can proceed to the next stage.",
                 )
                 return
 
-            for url, url_type in [
-                (api_url, "api_url"),
-                (github_url, "github_url"),
-            ]:
-                is_unique, message = self._check_url_uniqueness(
-                    url, url_type, user_id
+            # Check URL uniqueness
+            is_unique, message = self._check_url_uniqueness(api_url, user_id)
+            if not is_unique:
+                client.chat_postEphemeral(
+                    channel=channel,
+                    user=user_id,
+                    text=f"❌ {message}",
                 )
-                if not is_unique:
-                    client.chat_postEphemeral(
-                        channel=channel,
-                        user=user_id,
-                        text=f"❌ {message}",
-                    )
-                    return
+                return
 
             score, result = self._grade_submission(api_url)
             achieved_required_score = score >= self.required_score
@@ -167,7 +154,6 @@ class StageOne:
                     {
                         "timestamp": timestamp,
                         "api_url": api_url,
-                        "github_url": github_url,
                         "score": str(best_score),
                         "trials": str(trials),
                     },
@@ -180,13 +166,11 @@ class StageOne:
                         "username": username,
                         "user_id": user_id,
                         "api_url": api_url,
-                        "github_url": github_url,
                         "score": str(score),
                         "trials": "1",
-                    }
+                    },
                 )
 
-            # Handle results and promotion
             message = self._get_result_message(score, result, user_id, trials)
             if achieved_required_score:
                 handle_promotion(
@@ -223,14 +207,14 @@ class StageOne:
             )
 
     def _check_url_uniqueness(
-        self, url: str, url_type: str, user_id: str
+        self, url: str, user_id: str
     ) -> tuple[bool, str]:
         """Check if URL has been used by another intern."""
-        submission = self.sheet.get_row(url_type, url)
+        submission = self.sheet.get_row("api_url", url)
         if submission and submission[1].get("user_id") != user_id:
             return (
                 False,
-                f"This {url_type.replace('_', ' ')} has already been submitted by another intern.",
+                "This API endpoint has already been submitted by another intern.",
             )
         return True, ""
 
@@ -257,7 +241,7 @@ class StageOne:
                 )
 
             # Handle error case testing
-            if test_case.get("error_test"):
+            if "error" in test_case:
                 if response.status_code != 400:
                     return (
                         False,
@@ -286,60 +270,14 @@ class StageOne:
                     "Valid input should return 200 status code",
                 )
 
-            checks = [
-                (
-                    lambda: "number" in result,
-                    "Response must include 'number' field",
-                ),
-                (
-                    lambda: isinstance(result.get("number"), (int, float)),
-                    "Number field must be numeric",
-                ),
-                (
-                    lambda: "is_prime" in result,
-                    "Response must include 'is_prime' field",
-                ),
-                (
-                    lambda: isinstance(result.get("is_prime"), bool),
-                    "is_prime must be boolean",
-                ),
-                (
-                    lambda: "is_perfect" in result,
-                    "Response must include 'is_perfect' field",
-                ),
-                (
-                    lambda: isinstance(result.get("is_perfect"), bool),
-                    "is_perfect must be boolean",
-                ),
-                (
-                    lambda: "properties" in result,
-                    "Response must include 'properties' field",
-                ),
-                (
-                    lambda: isinstance(result.get("properties"), list),
-                    "properties must be an array",
-                ),
-                (
-                    lambda: "class_sum" in result,
-                    "Response must include 'class_sum' field",
-                ),
-                (
-                    lambda: isinstance(result.get("class_sum"), (int, float)),
-                    "class_sum must be numeric",
-                ),
-                (
-                    lambda: "fun_fact" in result,
-                    "Response must include 'fun_fact' field",
-                ),
-                (
-                    lambda: isinstance(result.get("fun_fact"), str),
-                    "fun_fact must be a string",
-                ),
-            ]
-
-            for check, message in checks:
+            # Run all validation checks and collect results
+            validation_results = []
+            for check, message in self._get_validation_checks(result):
                 if not check():
-                    return False, result, message
+                    validation_results.append(message)
+
+            if validation_results:
+                return False, result, "\n".join(validation_results)
 
             return True, result, "Success"
 
@@ -360,83 +298,123 @@ class StageOne:
         except Exception as e:
             return False, None, f"Test failed: {str(e)}"
 
+    def _get_validation_checks(self, result: dict) -> list:
+        """Return list of validation checks for API response."""
+        return [
+            (
+                lambda: "number" in result,
+                "Response must include 'number' field",
+            ),
+            (
+                lambda: isinstance(result.get("number"), (int, float)),
+                "Number field must be numeric",
+            ),
+            (
+                lambda: "is_prime" in result,
+                "Response must include 'is_prime' field",
+            ),
+            (
+                lambda: isinstance(result.get("is_prime"), bool),
+                "is_prime must be boolean",
+            ),
+            (
+                lambda: "is_perfect" in result,
+                "Response must include 'is_perfect' field",
+            ),
+            (
+                lambda: isinstance(result.get("is_perfect"), bool),
+                "is_perfect must be boolean",
+            ),
+            (
+                lambda: "properties" in result,
+                "Response must include 'properties' field",
+            ),
+            (
+                lambda: isinstance(result.get("properties"), list),
+                "properties must be an array",
+            ),
+            (
+                lambda: "class_sum" in result,
+                "Response must include 'class_sum' field",
+            ),
+            (
+                lambda: isinstance(result.get("class_sum"), (int, float)),
+                "class_sum must be numeric",
+            ),
+            (
+                lambda: "fun_fact" in result,
+                "Response must include 'fun_fact' field",
+            ),
+            (
+                lambda: isinstance(result.get("fun_fact"), str),
+                "fun_fact must be a string",
+            ),
+        ]
+
     def _grade_submission(self, api_url: str) -> tuple[float, list]:
-        """Grade submission and return score with helpful messages."""
-        total_tests = 0
-        passed_tests = 0
+        """Grade submission and return score with detailed feedback."""
+        total_score = 0
         messages = []
+        test_results = []
 
-        # Test basic JSON response
-        success, _, message = self._test_endpoint(api_url, {"number": "123"})
-        if not success:
-            return 0, [
-                "❌ Your API isn't returning valid JSON responses.",
-                f"Details: {message}",
-                "📝 Make sure your API:",
-                "   • Returns valid JSON",
-                "   • Sets Content-Type: application/json header",
-                "   • Is publicly accessible",
-            ]
-
-        # Test structure and format
-        total_tests += 6  # One test for each field
-        test_case = {"number": "42"}
-        success, response, message = self._test_endpoint(api_url, test_case)
-        if success:
-            passed_tests += 6
-        else:
-            messages.extend(
-                [
-                    "❌ Your API response is missing required fields or has incorrect formats.",
-                    f"Details: {message}",
-                    "📝 Check that your response includes all required fields with correct types:",
-                ]
+        # Test all cases and collect results
+        for test_case in self.test_cases:
+            success, response, message = self._test_endpoint(
+                api_url, test_case
             )
+            test_results.append((success, message))
+            if success:
+                total_score += 1
 
-        # Test error handling
-        total_tests += 2
-        test_case = {"number": "abc", "error_test": True}
-        success, _, message = self._test_endpoint(api_url, test_case)
-        if success:
-            passed_tests += 2
-        else:
-            messages.extend(
-                [
-                    "❌ Your error handling needs improvement.",
-                    f"Details: {message}",
-                    "📝 For invalid input, return:",
-                    "   • Status code 400",
-                    "   • JSON with number and error fields",
-                ]
-            )
+        # Calculate final score (scale to 6 points)
+        final_score = (total_score / len(self.test_cases)) * 6
 
-        score = (passed_tests / total_tests) * 6  # Scale to 6 points
-
-        if not messages:  # All tests passed
+        # Generate comprehensive feedback
+        if final_score == 0:
             messages = [
-                "✅ Your API is working perfectly! It:",
-                "   • Returns valid JSON responses",
-                "   • Includes all required fields",
-                "   • Handles errors correctly",
-                "   • Uses proper status codes",
+                "Your API needs some work. Here's what to fix:",
+                *[f"• {msg}" for _, msg in test_results if msg != "Success"],
+                "\n💡 Make sure your API:",
+                "• Returns valid JSON responses",
+                "• Sets Content-Type: application/json header",
+                "• Includes all required fields with correct types",
+                "• Handles errors properly",
             ]
-            if score >= 6:
-                messages.append("\n🎉 Congratulations! You've passed Stage 1!")
+        elif final_score < 6:
+            messages = [
+                "Your API is working, but there are some issues to fix:",
+                *[f"• {msg}" for _, msg in test_results if msg != "Success"],
+                "\n💪 You're making progress! Keep going and try again to achieve a perfect score.",
+            ]
+        else:
+            messages = [
+                "🌟 Perfect implementation! Your API:",
+                "• Returns valid JSON responses",
+                "• Includes all required fields",
+                "• Handles errors correctly",
+                "• Uses proper status codes",
+            ]
 
-        return score, messages
+        return final_score, messages
 
     def _get_result_message(
         self, score: float, messages: list, user_id: str, trials: int
     ) -> str:
         """Generate a clear, encouraging feedback message."""
-        status = "🎯 Almost there!" if score > 0 else "🚀 Let's get started!"
+        status = "🎯 Getting closer!" if score > 0 else "🚀 Let's begin!"
         if score >= 6:
-            status = "🌟 Success!"
+            status = "🌟 Perfect score!"
+
+        retry_message = (
+            "💪 Don't give up! You can keep trying until you get a perfect score."
+            if score < 6
+            else "🎊 Congratulations! You can now proceed to the next stage!"
+        )
 
         return (
             f"<@{user_id}> Stage 1 Results (Attempt #{trials})\n\n"
             f"{status}\n"
             f"Score: {score:.1f}/6.0\n\n"
             f"{chr(10).join(messages)}\n\n"
-            f"{'💡 Fix these issues and try again!' if score < 6 else '🎊 Proceed to the next stage!'}"
+            f"{retry_message}"
         )
