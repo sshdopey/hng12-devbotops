@@ -134,7 +134,6 @@ class StageOne:
             api_url = values["api_url"]["api_url"]["value"]
             github_url = values["github_url"]["github_url"]["value"]
 
-            # Check for perfect score first
             submission = self.sheet.get_row("user_id", user_id)
             if (
                 submission
@@ -147,8 +146,7 @@ class StageOne:
                 )
                 return
 
-            # Check URL uniqueness
-            is_unique, message = self._check_url_uniqueness(api_url, user_id)
+            is_unique, message = self._check_url_uniqueness(api_url, user_id, "api_url")
             if not is_unique:
                 client.chat_postEphemeral(
                     channel=channel,
@@ -157,9 +155,16 @@ class StageOne:
                 )
                 return
 
-            github_valid, github_message = self._validate_github_url(
-                github_url
-            )
+            is_unique, message = self._check_url_uniqueness(github_url, user_id, "github_url")
+            if not is_unique:
+                client.chat_postEphemeral(
+                    channel=channel,
+                    user=user_id,
+                    text=f"❌ {message}",
+                )
+                return
+
+            github_valid, github_message = self._validate_github_url(github_url)
             if not github_valid:
                 client.chat_postEphemeral(
                     channel=channel,
@@ -237,15 +242,23 @@ class StageOne:
                 text="🚨 An error occurred while processing your submission. Please try again or contact support.",
             )
 
-    def _check_url_uniqueness(
-        self, url: str, user_id: str
-    ) -> tuple[bool, str]:
-        """Check if URL has been used by another intern."""
-        submission = self.sheet.get_row("api_url", url)
+    def _check_url_uniqueness(self, url: str, user_id: str, field: str = "api_url") -> tuple[bool, str]:
+        """Check if URL has been used by another intern.
+        
+        Args:
+            url: The URL to check
+            user_id: The ID of the current user
+            field: The field to check ('api_url' or 'github_url')
+        
+        Returns:
+            tuple[bool, str]: (is_unique, error_message)
+        """
+        submission = self.sheet.get_row(field, url)
         if submission and submission[1].get("user_id") != user_id:
+            field_name = "API endpoint" if field == "api_url" else "GitHub repository"
             return (
                 False,
-                "This API endpoint has already been submitted by another intern.",
+                f"This {field_name} has already been submitted by another intern.",
             )
         return True, ""
 
