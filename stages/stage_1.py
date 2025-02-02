@@ -283,7 +283,9 @@ class StageOne:
         if not url.startswith("https://github.com/"):
             return False, "Please provide a valid GitHub repository URL"
 
-        repo_path = url.replace("https://github.com/", "").rstrip("/")
+        repo_path = "/".join(
+            url.replace("https://github.com/", "").split("/")[:2]
+        )
         readme_url = (
             f"https://raw.githubusercontent.com/{repo_path}/main/README.md"
         )
@@ -353,19 +355,44 @@ class StageOne:
                 return True, result, "Success"
 
             if response.status_code != 200:
+                input_type = (
+                    "negative"
+                    if test_case["number"].startswith("-")
+                    else (
+                        "floating-point"
+                        if "." in test_case["number"]
+                        else "valid integer"
+                    )
+                )
                 return (
                     False,
                     result,
-                    "Valid input should return 200 status code",
+                    f"Your API returned {response.status_code} for a {input_type} number. All valid numbers should return 200 status code, even if they're negative or floating-point values.",
                 )
 
             validation_results = []
-            for check, message in self._get_validation_checks(result):
+            for check, message in self._get_validation_checks(
+                result, test_case
+            ):
                 if not check():
                     validation_results.append(message)
 
             if validation_results:
                 return False, result, "\n".join(validation_results)
+
+            if "expected_properties" in test_case and set(
+                test_case["expected_properties"]
+            ).difference(set(result.get("properties", []))):
+                property_type = (
+                    "negative numbers"
+                    if test_case["number"].startswith("-")
+                    else "this type of number"
+                )
+                return (
+                    False,
+                    result,
+                    f"Properties list is incorrect for {property_type}. Check if you're handling all number classifications correctly.",
+                )
 
             return True, result, "Success"
 
@@ -384,58 +411,77 @@ class StageOne:
                 )
             return False, None, f"Request failed: {str(e)}"
         except Exception as e:
-            return False, None, f"Test failed: {str(e)}"
+            input_type = (
+                "negative"
+                if test_case["number"].startswith("-")
+                else (
+                    "floating-point"
+                    if "." in test_case["number"]
+                    else "valid integer"
+                )
+            )
+            return (
+                False,
+                None,
+                f"Your API threw an unexpected error when processing a {input_type} number. Make sure you handle all valid number types, including negative and floating-point values: {str(e)}",
+            )
 
-    def _get_validation_checks(self, result: dict) -> list:
+    def _get_validation_checks(self, result: dict, test_case: dict) -> list:
         """Return list of validation checks for API response."""
+        input_type = (
+            "negative"
+            if test_case["number"].startswith("-")
+            else "floating-point" if "." in test_case["number"] else "integer"
+        )
+
         return [
             (
                 lambda: "number" in result,
-                "Response must include 'number' field",
+                f"Response must include 'number' field (failed on {input_type} input)",
             ),
             (
                 lambda: isinstance(result.get("number"), (int, float)),
-                "Number field must be numeric",
+                f"Number field must be numeric (failed on {input_type} input)",
             ),
             (
                 lambda: "is_prime" in result,
-                "Response must include 'is_prime' field",
+                f"Response must include 'is_prime' field (failed on {input_type} input)",
             ),
             (
                 lambda: isinstance(result.get("is_prime"), bool),
-                "is_prime must be boolean",
+                f"is_prime must be boolean (failed on {input_type} input)",
             ),
             (
                 lambda: "is_perfect" in result,
-                "Response must include 'is_perfect' field",
+                f"Response must include 'is_perfect' field (failed on {input_type} input)",
             ),
             (
                 lambda: isinstance(result.get("is_perfect"), bool),
-                "is_perfect must be boolean",
+                f"is_perfect must be boolean (failed on {input_type} input)",
             ),
             (
                 lambda: "properties" in result,
-                "Response must include 'properties' field",
+                f"Response must include 'properties' field (failed on {input_type} input)",
             ),
             (
                 lambda: isinstance(result.get("properties"), list),
-                "properties must be an array",
+                f"properties must be an array (failed on {input_type} input)",
             ),
             (
-                lambda: "class_sum" in result,
-                "Response must include 'class_sum' field",
+                lambda: "digit_sum" in result,
+                f"Response must include 'digit_sum' field (failed on {input_type} input)",
             ),
             (
-                lambda: isinstance(result.get("class_sum"), (int, float)),
-                "class_sum must be numeric",
+                lambda: isinstance(result.get("digit_sum"), (int, float)),
+                f"digit_sum must be numeric (failed on {input_type} input)",
             ),
             (
                 lambda: "fun_fact" in result,
-                "Response must include 'fun_fact' field",
+                f"Response must include 'fun_fact' field (failed on {input_type} input)",
             ),
             (
                 lambda: isinstance(result.get("fun_fact"), str),
-                "fun_fact must be a string",
+                f"fun_fact must be a string (failed on {input_type} input)",
             ),
         ]
 
