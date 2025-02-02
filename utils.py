@@ -44,9 +44,9 @@ def handle_promotion(client, user_id, current, next, status_emoji, token):
         except Exception as e:
             logger.error(f"Error inviting user to channel {channel}: {str(e)}")
 
-    try:
-        client.users_profile_set(
-            user=user_id, profile={"status_emoji": status_emoji}, token=token
-        )
-    except Exception as e:
-        logger.error(f"Error setting user profile: {str(e)}")
+    # try:
+    #     client.users_profile_set(
+    #         user=user_id, profile={"status_emoji": status_emoji}, token=token
+    #     )
+    # except Exception as e:
+    #     logger.error(f"Error setting user profile: {str(e)}")

@@ -15,7 +15,7 @@ class StageOne:
 
     emoji = ":one:"
     channels = ["C08AHHWBTK8"]
-    next_channels = ["C08AHHWBTK8", "C08B3UKM0QN"]
+    next_channels = ["C08BAAHFAUV"]
     required_score = 6
     wat_tz = pytz.timezone("Africa/Lagos")
     deadline = wat_tz.localize(
@@ -165,7 +165,7 @@ class StageOne:
                         "timestamp": timestamp,
                         "api_url": api_url,
                         "github_url": github_url,
-                        "score": str(best_score),  # Store the best score achieved
+                        "score": str(best_score),
                         "trials": str(trials),
                     },
                 )
