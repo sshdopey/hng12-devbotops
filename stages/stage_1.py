@@ -129,10 +129,16 @@ class StageOne:
         """Process Stage 1 submission and handle promotion if successful."""
         try:
             user_id = body["user"]["id"]
-            username = body["user"]["name"]
             values = body["view"]["state"]["values"]
             api_url = values["api_url"]["api_url"]["value"]
             github_url = values["github_url"]["github_url"]["value"]
+            profile = client.users_profile_get(user=user_id)
+            if profile["ok"]:
+                username = profile["profile"]["display_name"]
+                if not username:
+                    username = profile["profile"]["real_name"]
+            else:
+                username = body["user"]["name"]
 
             submission = self.sheet.get_row("user_id", user_id)
             if (
@@ -146,7 +152,9 @@ class StageOne:
                 )
                 return
 
-            is_unique, message = self._check_url_uniqueness(api_url, user_id, "api_url")
+            is_unique, message = self._check_url_uniqueness(
+                api_url, user_id, "api_url"
+            )
             if not is_unique:
                 client.chat_postEphemeral(
                     channel=channel,
@@ -155,7 +163,9 @@ class StageOne:
                 )
                 return
 
-            is_unique, message = self._check_url_uniqueness(github_url, user_id, "github_url")
+            is_unique, message = self._check_url_uniqueness(
+                github_url, user_id, "github_url"
+            )
             if not is_unique:
                 client.chat_postEphemeral(
                     channel=channel,
@@ -164,7 +174,9 @@ class StageOne:
                 )
                 return
 
-            github_valid, github_message = self._validate_github_url(github_url)
+            github_valid, github_message = self._validate_github_url(
+                github_url
+            )
             if not github_valid:
                 client.chat_postEphemeral(
                     channel=channel,
@@ -242,20 +254,24 @@ class StageOne:
                 text="🚨 An error occurred while processing your submission. Please try again or contact support.",
             )
 
-    def _check_url_uniqueness(self, url: str, user_id: str, field: str = "api_url") -> tuple[bool, str]:
+    def _check_url_uniqueness(
+        self, url: str, user_id: str, field: str = "api_url"
+    ) -> tuple[bool, str]:
         """Check if URL has been used by another intern.
-        
+
         Args:
             url: The URL to check
             user_id: The ID of the current user
             field: The field to check ('api_url' or 'github_url')
-        
+
         Returns:
             tuple[bool, str]: (is_unique, error_message)
         """
         submission = self.sheet.get_row(field, url)
         if submission and submission[1].get("user_id") != user_id:
-            field_name = "API endpoint" if field == "api_url" else "GitHub repository"
+            field_name = (
+                "API endpoint" if field == "api_url" else "GitHub repository"
+            )
             return (
                 False,
                 f"This {field_name} has already been submitted by another intern.",
