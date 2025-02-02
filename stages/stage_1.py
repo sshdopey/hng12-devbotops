@@ -39,7 +39,8 @@ class StageOne:
             "C": "user_id",
             "D": "trials",
             "E": "api_url",
-            "F": "score",
+            "F": "github_url",
+            "G": "score",
         },
     )
 
@@ -101,6 +102,22 @@ class StageOne:
                         },
                     },
                 },
+                {
+                    "type": "input",
+                    "block_id": "github_url",
+                    "label": {
+                        "type": "plain_text",
+                        "text": "GitHub Repository URL",
+                    },
+                    "element": {
+                        "type": "plain_text_input",
+                        "action_id": "github_url",
+                        "placeholder": {
+                            "type": "plain_text",
+                            "text": "https://github.com/username/repository",
+                        },
+                    },
+                },
             ],
             "close": {"type": "plain_text", "text": "Cancel"},
             "submit": {"type": "plain_text", "text": "Submit"},
@@ -115,6 +132,7 @@ class StageOne:
             username = body["user"]["name"]
             values = body["view"]["state"]["values"]
             api_url = values["api_url"]["api_url"]["value"]
+            github_url = values["github_url"]["github_url"]["value"]
 
             # Check for perfect score first
             submission = self.sheet.get_row("user_id", user_id)
@@ -139,6 +157,17 @@ class StageOne:
                 )
                 return
 
+            github_valid, github_message = self._validate_github_url(
+                github_url
+            )
+            if not github_valid:
+                client.chat_postEphemeral(
+                    channel=channel,
+                    user=user_id,
+                    text=f"❌ {github_message}",
+                )
+                return
+
             score, result = self._grade_submission(api_url)
             achieved_required_score = score >= self.required_score
 
@@ -154,6 +183,7 @@ class StageOne:
                     {
                         "timestamp": timestamp,
                         "api_url": api_url,
+                        "github_url": github_url,
                         "score": str(best_score),
                         "trials": str(trials),
                     },
@@ -166,6 +196,7 @@ class StageOne:
                         "username": username,
                         "user_id": user_id,
                         "api_url": api_url,
+                        "github_url": github_url,
                         "score": str(score),
                         "trials": "1",
                     },
@@ -218,6 +249,37 @@ class StageOne:
             )
         return True, ""
 
+    def _validate_github_url(self, url: str) -> tuple[bool, str]:
+        """Validate GitHub URL and check for README."""
+        if not url.startswith("https://github.com/"):
+            return False, "Please provide a valid GitHub repository URL"
+
+        repo_path = url.replace("https://github.com/", "").rstrip("/")
+        readme_url = (
+            f"https://raw.githubusercontent.com/{repo_path}/main/README.md"
+        )
+
+        try:
+            response = requests.get(readme_url, timeout=10)
+            if response.status_code != 200:
+                return (
+                    False,
+                    "Repository must have a README.md file in the main branch",
+                )
+
+            if len(response.text.strip()) < 100:
+                return (
+                    False,
+                    "README.md seems too short. Please provide a more detailed description of your project",
+                )
+
+            return True, "Success"
+        except requests.RequestException:
+            return (
+                False,
+                "Could not access the repository. Make sure it's public and the URL is correct",
+            )
+
     def _test_endpoint(
         self, url: str, test_case: dict
     ) -> tuple[bool, dict, str]:
@@ -240,7 +302,6 @@ class StageOne:
                     "Response must have Content-Type: application/json header",
                 )
 
-            # Handle error case testing
             if "error" in test_case:
                 if response.status_code != 400:
                     return (
@@ -262,7 +323,6 @@ class StageOne:
                     )
                 return True, result, "Success"
 
-            # Handle successful case testing
             if response.status_code != 200:
                 return (
                     False,
@@ -270,7 +330,6 @@ class StageOne:
                     "Valid input should return 200 status code",
                 )
 
-            # Run all validation checks and collect results
             validation_results = []
             for check, message in self._get_validation_checks(result):
                 if not check():
@@ -357,7 +416,6 @@ class StageOne:
         messages = []
         test_results = []
 
-        # Test all cases and collect results
         for test_case in self.test_cases:
             success, response, message = self._test_endpoint(
                 api_url, test_case
@@ -366,10 +424,8 @@ class StageOne:
             if success:
                 total_score += 1
 
-        # Calculate final score (scale to 6 points)
         final_score = (total_score / len(self.test_cases)) * 6
 
-        # Generate comprehensive feedback
         if final_score == 0:
             messages = [
                 "Your API needs some work. Here's what to fix:",
