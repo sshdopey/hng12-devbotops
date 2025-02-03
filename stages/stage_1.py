@@ -24,8 +24,8 @@ class StageOne:
 
     test_cases = [
         {"number": "371", "expected_properties": ["armstrong", "odd"]},
-        {"number": "6", "expected_properties": ["perfect", "even"]},
-        {"number": "17", "expected_properties": ["prime", "odd"]},
+        {"number": "6", "expected_properties": ["even"]},
+        {"number": "17", "expected_properties": ["odd"]},
         {"number": "abc", "error": True},
         {"number": "-5", "expected_properties": ["odd"]},
         {"number": "0", "expected_properties": ["even"]},
@@ -380,6 +380,13 @@ class StageOne:
             if validation_results:
                 return False, result, "\n".join(validation_results)
 
+            if test_case["number"] == "0" and result.get("is_perfect") is True:
+                return (
+                    False,
+                    result,
+                    "0 should not be classified as a perfect number (is_perfect should be false)",
+                )
+
             if "expected_properties" in test_case and set(
                 test_case["expected_properties"]
             ).difference(set(result.get("properties", []))):
@@ -391,7 +398,7 @@ class StageOne:
                 return (
                     False,
                     result,
-                    f"Properties list is incorrect for {property_type}. Check if you're handling all number classifications correctly.",
+                    f"Properties list is incorrect for {property_type}. Expected only armstrong/odd/even in properties list.",
                 )
 
             return True, result, "Success"
@@ -492,9 +499,7 @@ class StageOne:
         test_results = []
 
         for test_case in self.test_cases:
-            success, response, message = self._test_endpoint(
-                api_url, test_case
-            )
+            success, _, message = self._test_endpoint(api_url, test_case)
             test_results.append((success, message))
             if success:
                 total_score += 1

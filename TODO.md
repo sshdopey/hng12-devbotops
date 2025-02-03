@@ -1,5 +1,1 @@
-- Fix emojis
-- Fix Names on forms
-- Implement Deadline
-- Check already submitted on time
 - if invlid url it compares with existing
