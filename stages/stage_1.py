@@ -13,7 +13,7 @@ from utils import handle_promotion
 class StageOne:
     """Handles Stage 1 submissions and promotions for the DevOps program."""
 
-    emoji = ":one:"
+    emoji = ":two:"
     channels = ["C08AHHWBTK8"]
     next_channels = ["C08BAAHFAUV", "C08AYKQ9AQ7"]
     required_score = 6
