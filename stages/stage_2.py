@@ -222,7 +222,7 @@ class StageTwo:
         {
             "A": "timestamp",
             "B": "display_name",
-            "C": "slack_id",
+            "C": "user_id",
             "D": "trials",
             "E": "deployed_url",
             "F": "github_url",
