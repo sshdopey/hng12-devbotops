@@ -67,7 +67,7 @@ def check_url_uniqueness(
         tuple[bool, str]: (is_unique, error_message)
     """
     submission = sheet.get_row(field, url)
-    if submission and submission[1].get("user_id") != user_id:
+    if submission and submission[1].get("slack_id") != user_id:
         field_name = (
             "API endpoint" if field == "deployed_url" else "GitHub repository"
         )
