@@ -1,1 +1,2 @@
-- if invlid url it compares with existing
+- STAGE 2
+- Prevent resubmission when already in rpogress

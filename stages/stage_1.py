@@ -13,13 +13,13 @@ from utils import handle_promotion
 class StageOne:
     """Handles Stage 1 submissions and promotions for the DevOps program."""
 
-    emoji = ":two:"
+    next_emoji = ":two:"
     channels = ["C08AHHWBTK8"]
     next_channels = ["C08BAAHFAUV", "C08AYKQ9AQ7"]
     required_score = 6
     wat_tz = pytz.timezone("Africa/Lagos")
     deadline = wat_tz.localize(
-        datetime.strptime("2025-02-07 23:59:59", "%Y-%m-%d %H:%M:%S")
+        datetime.strptime("2025-02-09 23:59:59", "%Y-%m-%d %H:%M:%S")
     )
 
     test_cases = [
@@ -226,7 +226,7 @@ class StageOne:
                     user_id,
                     self.channels,
                     self.next_channels,
-                    self.emoji,
+                    self.next_emoji,
                     Config.SLACK_USER_TOKEN,
                 )
 

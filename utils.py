@@ -50,3 +50,29 @@ def handle_promotion(client, user_id, current, next, status_emoji, token):
         )
     except Exception as e:
         logger.error(f"Error setting user profile: {str(e)}")
+
+
+def check_url_uniqueness(
+    sheet, url: str, user_id: str, field: str = "deployed_url"
+) -> tuple[bool, str]:
+    """Check if URL has been used by another intern.
+
+    Args:
+        sheet: The sheet object
+        url: The URL to check
+        user_id: The ID of the current user
+        field: The field to check ('deployed_url' or 'github_url')
+
+    Returns:
+        tuple[bool, str]: (is_unique, error_message)
+    """
+    submission = sheet.get_row(field, url)
+    if submission and submission[1].get("user_id") != user_id:
+        field_name = (
+            "API endpoint" if field == "deployed_url" else "GitHub repository"
+        )
+        return (
+            False,
+            f"This {field_name} has already been submitted by another intern.",
+        )
+    return True, ""
