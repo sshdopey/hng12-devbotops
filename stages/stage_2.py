@@ -64,7 +64,9 @@ class CITester:
         }
         try:
             # Check /books/1
-            books_response = requests.get(f"{self.deployed_url}/books/1")
+            books_response = requests.get(
+                f"{self.deployed_url}/api/v1/books/1"
+            )
             if books_response.status_code != 200:
                 return ValidationResult(
                     False,
