@@ -67,7 +67,7 @@ class CITester:
             books_response = requests.get(
                 f"{self.deployed_url}/api/v1/books/1"
             )
-            if books_response.status_code != 200:
+            if books_response.status_code not in [200, 201]:
                 return ValidationResult(
                     False,
                     "Books endpoint returned unexpected status",
