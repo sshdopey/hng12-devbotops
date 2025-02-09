@@ -211,8 +211,8 @@ class CITester:
 
 class StageTwo:
     next_emoji = ":three:"
-    channels = ["C08BAAHFAUV", "C08AYKQ9AQ7"]
-    next_channels = ["C08B9TA2T9P", "C08BAAHFAUV"]
+    channels = ["C08AYKQ9AQ7"]
+    next_channels = ["C08AYKQ9AQ7"]
     required_score = 8
     deadline = wat_tz.localize(
         datetime.strptime("2025-02-14 23:59:59", "%Y-%m-%d %H:%M:%S")
