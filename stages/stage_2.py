@@ -64,16 +64,24 @@ class CITester:
                         return check.conclusion
             time.sleep(5)
         return "timeout"
-
     def validate_initial_endpoint(self) -> ValidationResult:
         expected_book = {
             "id": 1,
-            "title": "The Hobbit",
+            "title": "The Hobbit", 
             "author": "J.R.R. Tolkien",
             "publication_year": 1937,
             "genre": "Science Fiction",
         }
         try:
+            response = requests.get(f"{self.deployed_url}")
+            server = response.headers.get('Server', '').lower()
+            if 'nginx' not in server:
+                return ValidationResult(
+                    False,
+                    "Application must be served using Nginx",
+                    f"Server header indicates {server} is being used instead of nginx"
+                )
+
             books_response = requests.get(
                 f"{self.deployed_url}/api/v1/books/1"
             )
@@ -99,7 +107,7 @@ class CITester:
                 )
             return ValidationResult(
                 True,
-                "Initial API endpoints are correctly implemented and responding",
+                "Initial API endpoints are correctly implemented and responding via Nginx",
             )
         except requests.RequestException as e:
             return ValidationResult(

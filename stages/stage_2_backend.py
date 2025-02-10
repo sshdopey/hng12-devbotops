@@ -74,6 +74,15 @@ class CITester:
             "genre": "Science Fiction",
         }
         try:
+            response = requests.get(f"{self.deployed_url}")
+            server = response.headers.get("Server", "").lower()
+            if "nginx" not in server:
+                return ValidationResult(
+                    False,
+                    "Application must be served using Nginx",
+                    f"Server header indicates {server} is being used instead of nginx",
+                )
+
             books_response = requests.get(
                 f"{self.deployed_url}/api/v1/books/1"
             )
