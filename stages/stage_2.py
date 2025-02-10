@@ -54,6 +54,18 @@ class CITester:
                 logger.error(f"Failed to restore main.py: {e}")
                 raise
 
+    def _wait_for_job(self, commit, job_name: str, timeout: int = 120) -> str:
+        """Wait for a specific job to complete and return its conclusion."""
+        start = time.time()
+        while time.time() - start < timeout:
+            checks = commit.get_check_runs()
+            for check in checks:
+                if check.name == job_name:
+                    if check.conclusion in ["success", "failure", "cancelled"]:
+                        return check.conclusion
+            time.sleep(5)
+        return "timeout"
+
     def validate_initial_endpoint(self) -> ValidationResult:
         expected_book = {
             "id": 1,
@@ -106,7 +118,6 @@ class CITester:
     def test_bad_pr(self) -> ValidationResult:
         branch_name = f"test-bad-pr-{int(time.time())}"
         try:
-            # Create branch and bad PR
             source = self.repo.get_branch("main")
             self.repo.create_git_ref(
                 f"refs/heads/{branch_name}", source.commit.sha
@@ -121,16 +132,9 @@ class CITester:
             pr = self.repo.create_pull(
                 title="Bad PR", body="", head=branch_name, base="main"
             )
-
-            # Wait for CI
-            start = time.time()
-            while time.time() - start < 120:
-                pr.update()
-                checks = list(pr.get_commits().reversed[0].get_check_runs())
-                if len(checks) > 0 and checks[0].conclusion == "failure":
-                    return ValidationResult(True, "Bad PR failed CI")
-                time.sleep(5)
-            return ValidationResult(False, "Bad PR CI timeout")
+            commit = pr.get_commits().reversed[0]
+            result = self._wait_for_job(commit, "test")
+            return ValidationResult(result == "failure", f"Bad PR {result} CI")
         except Exception as e:
             return ValidationResult(False, "Bad PR test failed", str(e))
         finally:
@@ -142,7 +146,6 @@ class CITester:
     def test_good_pr(self) -> ValidationResult:
         branch_name = f"test-good-pr-{int(time.time())}"
         try:
-            # Create branch and good PR
             source = self.repo.get_branch("main")
             self.repo.create_git_ref(
                 f"refs/heads/{branch_name}", source.commit.sha
@@ -164,17 +167,12 @@ class CITester:
             pr = self.repo.create_pull(
                 title="Good PR", body="", head=branch_name, base="main"
             )
-
-            # Wait for CI
-            start = time.time()
-            while time.time() - start < 120:
-                pr.update()
-                checks = list(pr.get_commits().reversed[0].get_check_runs())
-                if len(checks) > 0 and checks[0].conclusion == "success":
-                    pr.merge()
-                    return ValidationResult(True, "Good PR passed CI")
-                time.sleep(5)
-            return ValidationResult(False, "Good PR CI timeout")
+            commit = pr.get_commits().reversed[0]
+            result = self._wait_for_job(commit, "test")
+            if result == "success":
+                pr.merge()
+                return ValidationResult(True, "Good PR passed CI")
+            return ValidationResult(False, f"Good PR CI {result}")
         except Exception as e:
             return ValidationResult(False, "Good PR test failed", str(e))
         finally:
@@ -187,17 +185,10 @@ class CITester:
         try:
             time.sleep(10)
             latest_commit = self.repo.get_commits()[0]
-            start = time.time()
-            while time.time() - start < 120:
-                checks = latest_commit.get_check_runs()
-                for check in checks:
-                    if (
-                        check.name == "deploy"
-                        and check.conclusion == "success"
-                    ):
-                        return ValidationResult(True, "Deployment succeeded")
-                time.sleep(10)
-            return ValidationResult(False, "Deployment timeout")
+            result = self._wait_for_job(latest_commit, "deploy")
+            return ValidationResult(
+                result == "success", f"Deployment {result}"
+            )
         except Exception as e:
             return ValidationResult(False, "Deployment check failed", str(e))
 
