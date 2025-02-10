@@ -181,7 +181,7 @@ class CITester:
 async def stage2():
     return {"message": "welcome to stage 2"}
 """
-            updated_content = content + "\n" + new_route
+            updated_content = content + new_route
 
             self.repo.update_file(
                 "main.py",
