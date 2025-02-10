@@ -126,8 +126,8 @@ class CITester:
             start = time.time()
             while time.time() - start < 120:
                 pr.update()
-                checks = pr.get_commits().reversed[0].get_check_runs()
-                if checks and checks[0].conclusion == "failure":
+                checks = list(pr.get_commits().reversed[0].get_check_runs())
+                if len(checks) > 0 and checks[0].conclusion == "failure":
                     return ValidationResult(True, "Bad PR failed CI")
                 time.sleep(5)
             return ValidationResult(False, "Bad PR CI timeout")
@@ -170,7 +170,7 @@ class CITester:
             while time.time() - start < 120:
                 pr.update()
                 checks = pr.get_commits().reversed[0].get_check_runs()
-                if checks and checks[0].conclusion == "success":
+                if len(checks) > 0 and checks[0].conclusion == "success":
                     pr.merge()
                     return ValidationResult(True, "Good PR passed CI")
                 time.sleep(5)

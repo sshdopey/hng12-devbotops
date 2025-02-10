@@ -62,6 +62,24 @@ def promote_interns(intern_ids: list) -> None:
 
 
 if __name__ == "__main__":
-    interns_to_promote = ["U08AS0T4TAP"]
+    interns_to_promote = [
+        "U08BFCNTG2C",
+        "U08B14BPAHY", 
+        "U08ACC5NP0X",
+        "U08BQPYQHB2",
+        "U08B2D9SDED",
+        "U08BB3QDKQQ",
+        "U08B2UJE057",
+        "U08B7749KL2",
+        "U08AMFV4CJZ",
+        "U08AHBJUEJ2",
+        "U08AB34V8MV",
+        "U08AND77ZN2",
+        "U08ALEP669L",
+        "U08ABNH4WCF",
+        "U08BVKSCJPJ",
+        "U08AT0G430T",
+        "U08ATH6CGHJ"
+    ]
 
     promote_interns(interns_to_promote)
