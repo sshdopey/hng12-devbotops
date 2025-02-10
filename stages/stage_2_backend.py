@@ -456,9 +456,8 @@ class StageTwoBackend:
         except Exception as e:
             logger.error(f"Submission error: {e}")
 
-            if "data" in locals():
-                data["score"] = "0"
-                self.sheet.append(data)
+            data["score"] = "0"
+            self.sheet.update(submission[0], data)
             client.chat_postEphemeral(
                 channel=channel,
                 user=user_id,
