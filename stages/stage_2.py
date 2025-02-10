@@ -75,44 +75,62 @@ class CITester:
             "genre": "Science Fiction",
         }
         try:
-
             books_response = requests.get(
                 f"{self.deployed_url}/api/v1/books/1"
             )
             if books_response.status_code not in [200, 201]:
                 return ValidationResult(
                     False,
-                    "Books endpoint returned unexpected status",
-                    f"Status: {books_response.status_code}",
+                    "The books endpoint is not responding correctly - Expected status code 200/201",
+                    f"Got status code: {books_response.status_code}. Please check your API implementation.",
                 )
             if books_response.json() != expected_book:
-                return ValidationResult(False, "Unexpected book data")
+                return ValidationResult(
+                    False,
+                    "The book data doesn't match the expected format - Please check the book object structure",
+                    f"Expected: {expected_book}, Got: {books_response.json()}",
+                )
 
             stage2_response = requests.get(f"{self.deployed_url}/stage2")
             if stage2_response.status_code != 404:
                 return ValidationResult(
                     False,
-                    "Stage2 endpoint should return 404",
-                    f"Status: {stage2_response.status_code}",
+                    "The /stage2 endpoint should return 404 initially as it hasn't been implemented yet",
+                    f"Got status code: {stage2_response.status_code}",
                 )
-            return ValidationResult(True, "Initial endpoints validated")
+            return ValidationResult(
+                True,
+                "Initial API endpoints are correctly implemented and responding",
+            )
         except requests.RequestException as e:
-            return ValidationResult(False, "Request failed", str(e))
+            return ValidationResult(
+                False, "Failed to connect to your API endpoints", str(e)
+            )
 
     def check_repo_access(self) -> ValidationResult:
         try:
-
             invitations = self.user.get_invitations()
             for inv in invitations:
                 if inv.repository.full_name == self.repo.full_name:
                     self.user.accept_invitation(inv)
-                    return ValidationResult(True, "Accepted invitation")
+                    return ValidationResult(
+                        True,
+                        "Successfully accepted repository collaboration invitation",
+                    )
 
             if not self.repo.has_in_collaborators(self.user.login):
-                return ValidationResult(False, "Not a collaborator")
-            return ValidationResult(True, "Access confirmed")
+                return ValidationResult(
+                    False,
+                    "You need to add hng12-devbotops as a collaborator to your repository",
+                    "Please go to repository settings -> Collaborators -> Add people",
+                )
+            return ValidationResult(
+                True, "Repository access permissions verified successfully"
+            )
         except Exception as e:
-            return ValidationResult(False, "Access check failed", str(e))
+            return ValidationResult(
+                False, "Failed to verify repository access permissions", str(e)
+            )
 
     def test_bad_pr(self) -> ValidationResult:
         branch_name = f"test-bad-pr-{int(time.time())}"
@@ -133,9 +151,15 @@ class CITester:
             )
             commit = pr.get_commits().reversed[0]
             result = self._wait_for_job(commit, "test")
-            return ValidationResult(result == "failure", f"Bad PR {result} CI")
+            return ValidationResult(
+                result == "failure",
+                f"CI pipeline {'correctly rejected' if result == 'failure' else 'failed to reject'} invalid code",
+                "Your CI should fail when invalid code is submitted",
+            )
         except Exception as e:
-            return ValidationResult(False, "Bad PR test failed", str(e))
+            return ValidationResult(
+                False, "Failed to test CI pipeline with invalid code", str(e)
+            )
         finally:
             try:
                 self.repo.get_git_ref(f"heads/{branch_name}").delete()
@@ -173,10 +197,19 @@ async def stage2():
             result = self._wait_for_job(commit, "test")
             if result == "success":
                 pr.merge()
-                return ValidationResult(True, "Good PR passed CI")
-            return ValidationResult(False, f"Good PR CI {result}")
+                return ValidationResult(
+                    True,
+                    "Valid code changes passed CI checks and were merged successfully",
+                )
+            return ValidationResult(
+                False,
+                "CI pipeline failed for valid code changes",
+                f"Expected CI success but got: {result}",
+            )
         except Exception as e:
-            return ValidationResult(False, "Good PR test failed", str(e))
+            return ValidationResult(
+                False, "Failed to test CI pipeline with valid code", str(e)
+            )
         finally:
             try:
                 self.repo.get_git_ref(f"heads/{branch_name}").delete()
@@ -189,19 +222,39 @@ async def stage2():
             latest_commit = self.repo.get_commits()[0]
             result = self._wait_for_job(latest_commit, "deploy")
             return ValidationResult(
-                result == "success", f"Deployment {result}"
+                result == "success",
+                f"Automatic deployment {'completed successfully' if result == 'success' else 'failed'}",
+                f"Deployment status: {result}. Your changes should be automatically deployed when merged.",
             )
         except Exception as e:
-            return ValidationResult(False, "Deployment check failed", str(e))
+            return ValidationResult(
+                False, "Failed to verify automatic deployment", str(e)
+            )
 
     def validate_deployed_endpoint(self) -> ValidationResult:
         try:
             response = requests.get(f"{self.deployed_url}/stage2")
-            if response.json().get("message") == "welcome to stage 2":
-                return ValidationResult(True, "Stage2 endpoint working")
-            return ValidationResult(False, "Invalid stage2 response")
+            if response.status_code != 200:
+                return ValidationResult(
+                    False,
+                    "Stage2 endpoint not found - deployment did not update",
+                    f"Status code: {response.status_code}",
+                )
+
+            data = response.json()
+            if data.get("message") == "welcome to stage 2":
+                return ValidationResult(
+                    True, "Stage2 endpoint successfully deployed and working"
+                )
+            return ValidationResult(
+                False,
+                "Stage2 endpoint found but returned incorrect response",
+                f"Got: {data}",
+            )
         except requests.RequestException as e:
-            return ValidationResult(False, "Stage2 check failed", str(e))
+            return ValidationResult(
+                False, "Failed to check Stage2 endpoint", str(e)
+            )
 
 
 class StageTwo:
