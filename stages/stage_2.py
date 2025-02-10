@@ -78,10 +78,10 @@ class CITester:
             books_response = requests.get(
                 f"{self.deployed_url}/api/v1/books/1"
             )
-            if books_response.status_code not in [200, 201]:
+            if books_response.status_code != 200:
                 return ValidationResult(
                     False,
-                    "The books endpoint is not responding correctly - Expected status code 200/201",
+                    "The books endpoint is not responding correctly - Expected status code 200",
                     f"Got status code: {books_response.status_code}. Please check your API implementation.",
                 )
             if books_response.json() != expected_book:
