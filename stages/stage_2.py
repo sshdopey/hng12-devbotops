@@ -75,7 +75,7 @@ class CITester:
             "genre": "Science Fiction",
         }
         try:
-            # Check /books/1
+
             books_response = requests.get(
                 f"{self.deployed_url}/api/v1/books/1"
             )
@@ -88,7 +88,6 @@ class CITester:
             if books_response.json() != expected_book:
                 return ValidationResult(False, "Unexpected book data")
 
-            # Check /stage2 returns 404
             stage2_response = requests.get(f"{self.deployed_url}/stage2")
             if stage2_response.status_code != 404:
                 return ValidationResult(
@@ -102,7 +101,7 @@ class CITester:
 
     def check_repo_access(self) -> ValidationResult:
         try:
-            # Check invitations
+
             invitations = self.user.get_invitations()
             for inv in invitations:
                 if inv.repository.full_name == self.repo.full_name:
@@ -153,10 +152,13 @@ class CITester:
             content = self.repo.get_contents(
                 "main.py", ref="main"
             ).decoded_content.decode()
-            new_route = '\n@app.get("/stage2")\nasync def stage2(): return {"message": "welcome to stage 2"}'
-            updated_content = content.replace(
-                "if __name__", new_route + "\nif __name__"
-            )
+            new_route = """
+@app.get("/stage2")
+async def stage2():
+    return {"message": "welcome to stage 2"}
+"""
+            updated_content = content + "\n" + new_route
+
             self.repo.update_file(
                 "main.py",
                 "Good commit",
@@ -206,7 +208,8 @@ class StageTwo:
     next_emoji = ":three:"
     channels = ["C08AYKQ9AQ7"]
     next_channels = ["C08AYKQ9AQ7"]
-    required_score = 8
+    required_score = 9
+    max_trials = 3
     deadline = wat_tz.localize(
         datetime.strptime("2025-02-14 23:59:59", "%Y-%m-%d %H:%M:%S")
     )
@@ -305,15 +308,36 @@ class StageTwo:
         }
 
     def submit(self, channel: str, body: dict, client: Any) -> None:
+        user_id = body["user"]["id"]
         try:
-            user_id = body["user"]["id"]
+
+            submission = self.sheet.get_row("user_id", user_id)
+            if submission:
+                trials = int(submission[1]["trials"])
+                score = submission[1]["score"]
+                if trials >= self.max_trials:
+                    client.chat_postEphemeral(
+                        channel=channel,
+                        user=user_id,
+                        text="❌ You have used all your attempts (3/3).",
+                    )
+                    return
+                if score == "grading":
+                    client.chat_postEphemeral(
+                        channel=channel,
+                        user=user_id,
+                        text="❌ Your previous submission is still being graded. Please wait.",
+                    )
+                    return
+            else:
+                trials = 0
+
             values = body["view"]["state"]["values"]
             deployed_url = values["deployed_url"]["deployed_url"][
                 "value"
             ].strip()
             github_url = values["github_url"]["github_url"]["value"].strip()
 
-            # URL uniqueness checks
             for url, field in [
                 (deployed_url, "deployed_url"),
                 (github_url, "github_url"),
@@ -327,25 +351,13 @@ class StageTwo:
                     )
                     return
 
-            # Initialize CI tester
-            repo_name = "/".join(github_url.split("/")[-2:])
-            tester = CITester(Config.GITHUB_TOKEN, repo_name, deployed_url)
-            tester._save_main_content()
-
-            # Grade submission
-            score, result = self._grade_submission(tester)
-            achieved = score >= self.required_score
-
-            # Update spreadsheet
             timestamp = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
-            submission = self.sheet.get_row("user_id", user_id)
-            trials = int(submission[1]["trials"]) + 1 if submission else 1
             data = {
                 "timestamp": timestamp,
                 "deployed_url": deployed_url,
                 "github_url": github_url,
-                "score": str(score),
-                "trials": str(trials),
+                "score": "grading",
+                "trials": str(trials + 1),
             }
             if submission:
                 self.sheet.update(submission[0], data)
@@ -356,8 +368,21 @@ class StageTwo:
                 data["user_id"] = user_id
                 self.sheet.append(data)
 
-            # Send results
+            repo_name = "/".join(github_url.split("/")[-2:])
+            tester = CITester(Config.GITHUB_TOKEN, repo_name, deployed_url)
+            tester._save_main_content()
+
+            score, result = self._grade_submission(tester)
+            achieved = score >= self.required_score
+
+            data["score"] = str(score)
+            if submission:
+                self.sheet.update(submission[0], data)
+            else:
+                self.sheet.update_last_row(data)
+
             message = "\n".join(result)
+            attempts_msg = f"\nAttempts used: {trials + 1}/{self.max_trials}"
             if achieved:
                 handle_promotion(
                     client,
@@ -369,15 +394,24 @@ class StageTwo:
                 )
                 client.chat_postMessage(
                     channel=user_id,
-                    text=f"{message}\n\n🚀 Access granted to next stage!",
+                    text=f"{message}\n\n🚀 Access granted to next stage!{attempts_msg}",
                 )
             else:
                 client.chat_postEphemeral(
-                    channel=channel, user=user_id, text=message
+                    channel=channel,
+                    user=user_id,
+                    text=f"{message}{attempts_msg}",
                 )
 
         except Exception as e:
             logger.error(f"Submission error: {e}")
+
+            if "data" in locals():
+                data["score"] = "0"
+                if submission:
+                    self.sheet.update(submission[0], data)
+                else:
+                    self.sheet.update_last_row(data)
             client.chat_postEphemeral(
                 channel=channel,
                 user=user_id,
