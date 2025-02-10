@@ -257,7 +257,7 @@ async def stage2():
             )
 
 
-class StageTwo:
+class StageTwoBackend:
     next_emoji = ":three:"
     channels = ["C08B6GUP4PQ"]
     next_channels = ["C08B6GUP4PQ"]

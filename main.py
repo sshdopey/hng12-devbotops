@@ -5,13 +5,14 @@ from config import Config, logger
 from stages.stage_0 import StageZero
 from stages.stage_1 import StageOne
 from stages.stage_2 import StageTwo
+from stages.stage_2_backend import StageTwoBackend
 from utils import get_stage
 
 app = App(
     token=Config.SLACK_BOT_TOKEN, signing_secret=Config.SLACK_SIGNING_SECRET
 )
 
-stages = {0: StageZero, 1: StageOne, 2: StageTwo}
+stages = {0: StageZero, 1: StageOne, 2: StageTwo, 2.5: StageTwoBackend}
 
 
 @app.event("message")
