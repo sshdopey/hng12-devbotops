@@ -285,7 +285,7 @@ class StageTwoBackend:
         if now > self.deadline:
             return {
                 "type": "modal",
-                "title": {"type": "plain_text", "text": "DevOps Stage 2"},
+                "title": {"type": "plain_text", "text": "Backend Stage 2"},
                 "blocks": [
                     {
                         "type": "section",
@@ -305,7 +305,7 @@ class StageTwoBackend:
 
         return {
             "type": "modal",
-            "title": {"type": "plain_text", "text": "DevOps Stage 2"},
+            "title": {"type": "plain_text", "text": "Backend Stage 2"},
             "blocks": [
                 {
                     "type": "section",
