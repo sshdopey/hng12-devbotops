@@ -1,4 +1,3 @@
-import json
 from datetime import datetime
 from typing import Any
 import requests
@@ -260,7 +259,7 @@ async def stage2():
 class StageTwoBackend:
     next_emoji = ":three:"
     channels = ["C08B6GUP4PQ"]
-    next_channels = ["C08B6GUP4PQ"]
+    next_channels = ["C08DA2RDPRN"]
     required_score = 9
     max_trials = 3
     deadline = wat_tz.localize(
