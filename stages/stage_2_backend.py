@@ -414,9 +414,14 @@ class StageTwoBackend:
             if submission:
                 self.sheet.update(submission[0], data)
             else:
-                data["display_name"] = client.users_profile_get(user=user_id)[
-                    "profile"
-                ]["display_name"]
+                profile = client.users_profile_get(user=user_id)
+                if profile["ok"]:
+                    username = profile["profile"]["display_name"]
+                    if not username:
+                        username = profile["profile"]["real_name"]
+                else:
+                    username = body["user"]["name"]
+                data["display_name"] = username
                 data["user_id"] = user_id
                 self.sheet.append(data)
                 submission = self.sheet.get_row("user_id", user_id)
