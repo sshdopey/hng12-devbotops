@@ -169,7 +169,7 @@ class CITester:
             start = time.time()
             while time.time() - start < 120:
                 pr.update()
-                checks = pr.get_commits().reversed[0].get_check_runs()
+                checks = list(pr.get_commits().reversed[0].get_check_runs())
                 if len(checks) > 0 and checks[0].conclusion == "success":
                     pr.merge()
                     return ValidationResult(True, "Good PR passed CI")
