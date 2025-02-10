@@ -370,12 +370,12 @@ class StageTwoBackend:
 
     def submit(self, channel: str, body: dict, client: Any) -> None:
         user_id = body["user"]["id"]
+        data = {}
         try:
-
             submission = self.sheet.get_row("user_id", user_id)
             if submission:
-                trials = int(submission[1]["trials"])
-                score = submission[1]["score"]
+                trials = int(submission[1].get("trials", "0"))
+                score = submission[1].get("score", "0")
                 if trials >= self.max_trials:
                     client.chat_postEphemeral(
                         channel=channel,
@@ -480,8 +480,10 @@ class StageTwoBackend:
         finally:
             try:
                 tester._restore_main_content()
-            except:
-                pass
+            except Exception as restore_error:
+                logger.error(
+                    f"Failed to restore main content: {restore_error}"
+                )
 
     def _grade_submission(self, tester: CITester) -> tuple[float, list]:
         score = 0.0

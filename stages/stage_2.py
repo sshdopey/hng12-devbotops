@@ -64,22 +64,23 @@ class CITester:
                         return check.conclusion
             time.sleep(5)
         return "timeout"
+
     def validate_initial_endpoint(self) -> ValidationResult:
         expected_book = {
             "id": 1,
-            "title": "The Hobbit", 
+            "title": "The Hobbit",
             "author": "J.R.R. Tolkien",
             "publication_year": 1937,
             "genre": "Science Fiction",
         }
         try:
             response = requests.get(f"{self.deployed_url}")
-            server = response.headers.get('Server', '').lower()
-            if 'nginx' not in server:
+            server = response.headers.get("Server", "").lower()
+            if "nginx" not in server:
                 return ValidationResult(
                     False,
                     "Application must be served using Nginx",
-                    f"Server header indicates {server} is being used instead of nginx"
+                    f"Server header indicates {server} is being used instead of nginx",
                 )
 
             books_response = requests.get(
@@ -369,12 +370,12 @@ class StageTwo:
 
     def submit(self, channel: str, body: dict, client: Any) -> None:
         user_id = body["user"]["id"]
+        data = {}
         try:
-
             submission = self.sheet.get_row("user_id", user_id)
             if submission:
-                trials = int(submission[1]["trials"])
-                score = submission[1]["score"]
+                trials = int(submission[1].get("trials", "0"))
+                score = submission[1].get("score", "0")
                 if trials >= self.max_trials:
                     client.chat_postEphemeral(
                         channel=channel,
@@ -479,8 +480,10 @@ class StageTwo:
         finally:
             try:
                 tester._restore_main_content()
-            except:
-                pass
+            except Exception as restore_error:
+                logger.error(
+                    f"Failed to restore main content: {restore_error}"
+                )
 
     def _grade_submission(self, tester: CITester) -> tuple[float, list]:
         score = 0.0
