@@ -420,6 +420,7 @@ class StageTwo:
                 ]["display_name"]
                 data["user_id"] = user_id
                 self.sheet.append(data)
+                submission = self.sheet.get_row("user_id", user_id)
 
             repo_name = "/".join(github_url.split("/")[-2:])
             tester = CITester(Config.GITHUB_TOKEN, repo_name, deployed_url)
@@ -429,10 +430,7 @@ class StageTwo:
             achieved = score >= self.required_score
 
             data["score"] = str(score)
-            if submission:
-                self.sheet.update(submission[0], data)
-            else:
-                self.sheet.append(data)
+            self.sheet.update(submission[0], data)
 
             message = "\n".join(result)
             attempts_msg = f"\nAttempts used: {trials + 1}/{self.max_trials}"
@@ -461,10 +459,7 @@ class StageTwo:
 
             if "data" in locals():
                 data["score"] = "0"
-                if submission:
-                    self.sheet.update(submission[0], data)
-                else:
-                    self.sheet.append(data)
+                self.sheet.append(data)
             client.chat_postEphemeral(
                 channel=channel,
                 user=user_id,
