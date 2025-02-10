@@ -260,7 +260,7 @@ async def stage2():
 class StageTwo:
     next_emoji = ":three:"
     channels = ["C08AYKQ9AQ7"]
-    next_channels = ["C08AYKQ9AQ7"]
+    next_channels = ["C08CM5W329Z", "C08DA2RDPRN"]
     required_score = 9
     max_trials = 3
     deadline = wat_tz.localize(
