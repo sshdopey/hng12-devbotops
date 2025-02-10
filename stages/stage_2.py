@@ -432,7 +432,7 @@ class StageTwo:
             if submission:
                 self.sheet.update(submission[0], data)
             else:
-                self.sheet.update_last_row(data)
+                self.sheet.append(data)
 
             message = "\n".join(result)
             attempts_msg = f"\nAttempts used: {trials + 1}/{self.max_trials}"
@@ -464,7 +464,7 @@ class StageTwo:
                 if submission:
                     self.sheet.update(submission[0], data)
                 else:
-                    self.sheet.update_last_row(data)
+                    self.sheet.append(data)
             client.chat_postEphemeral(
                 channel=channel,
                 user=user_id,
