@@ -5,7 +5,7 @@ from datetime import datetime
 
 def setup_aws_instance(
     ami_id="ami-0e1bed4f06a3b463d",
-    instance_type="t2.micro",
+    instance_type="t3.micro",
     security_group_id="sg-09bd2a53c2f724517",
 ):
     """
