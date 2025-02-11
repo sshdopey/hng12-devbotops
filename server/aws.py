@@ -4,7 +4,6 @@ from datetime import datetime
 
 
 def setup_aws_instance(
-    ami_id="ami-0e1bed4f06a3b463d",
     instance_type="t3.micro",
     security_group_id="sg-09bd2a53c2f724517",
 ):
@@ -28,6 +27,8 @@ def setup_aws_instance(
             key_file.write(key_pair["KeyMaterial"])
         os.chmod(key_path, 0o400)
 
+        ami_id = get_ubuntu_ami()
+        security_group_id = ensure_security_group()
         instance = ec2.run_instances(
             ImageId=ami_id,
             InstanceType=instance_type,
@@ -63,3 +64,60 @@ def setup_aws_instance(
         except:
             pass
         raise Exception(f"Failed to setup AWS instance: {str(e)}")
+
+
+def get_ubuntu_ami():
+    """Get latest Ubuntu 22.04 AMI ID"""
+    ec2 = boto3.client("ec2", region_name="us-east-2")
+    response = ec2.describe_images(
+        Filters=[
+            {
+                "Name": "name",
+                "Values": [
+                    "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
+                ],
+            },
+            {"Name": "state", "Values": ["available"]},
+            {"Name": "architecture", "Values": ["x86_64"]},
+        ],
+        Owners=["099720109477"],
+    )
+    return sorted(
+        response["Images"], key=lambda x: x["CreationDate"], reverse=True
+    )[0]["ImageId"]
+
+
+def ensure_security_group(group_name="default-sg"):
+    """Create security group if it doesn't exist"""
+    ec2 = boto3.client("ec2", region_name="us-east-2")
+
+    vpc_response = ec2.describe_vpcs(
+        Filters=[{"Name": "isDefault", "Values": ["true"]}]
+    )
+    vpc_id = vpc_response["Vpcs"][0]["VpcId"]
+
+    try:
+        response = ec2.describe_security_groups(
+            Filters=[{"Name": "group-name", "Values": [group_name]}]
+        )
+        return response["SecurityGroups"][0]["GroupId"]
+    except:
+        response = ec2.create_security_group(
+            GroupName=group_name,
+            Description="Security group for EC2 instances",
+            VpcId=vpc_id,
+        )
+        security_group_id = response["GroupId"]
+
+        ec2.authorize_security_group_ingress(
+            GroupId=security_group_id,
+            IpPermissions=[
+                {
+                    "IpProtocol": "tcp",
+                    "FromPort": 22,
+                    "ToPort": 22,
+                    "IpRanges": [{"CidrIp": "0.0.0.0/0"}],
+                }
+            ],
+        )
+        return security_group_id
