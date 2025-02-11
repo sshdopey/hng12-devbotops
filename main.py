@@ -1,15 +1,17 @@
+import threading
+from datetime import datetime
+
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from config import Config, logger
+from server.aws import setup_aws_instance
 from spreadsheet import Sheet
 from stages.stage_0 import StageZero
 from stages.stage_1 import StageOne
 from stages.stage_2 import StageTwo
 from stages.stage_2_backend import StageTwoBackend
 from utils import get_stage
-from server.aws import setup_aws_instance
-import threading
 
 app = App(
     token=Config.SLACK_BOT_TOKEN, signing_secret=Config.SLACK_SIGNING_SECRET
@@ -68,6 +70,7 @@ def handle_submit(ack, body, client):
             text="🔧 Oops! Something went wrong. Please try again.",
         )
 
+
 @app.command("/request-server")
 def handle_server_request(ack, body, client):
     """Handle server request command"""
@@ -105,13 +108,13 @@ def handle_server_request(ack, body, client):
 
         sheet.append(
             {
-                "timestamp": body["ts"],
+                "timestamp": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
                 "display_name": body["user_name"],
                 "user_id": body["user_id"],
                 "status": "provisioning",
             }
         )
-        
+
         client.chat_postMessage(
             channel=body["channel_id"],
             text="🔄 Your server is being provisioned. This may take a few minutes...",
@@ -141,6 +144,7 @@ def handle_server_request(ack, body, client):
             user=body["user_id"],
             text="🔧 Oops! Something went wrong setting up the server. Please try again.",
         )
+
 
 @app.view("submission")
 def handle_submission(ack, body, client):
