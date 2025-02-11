@@ -12,7 +12,7 @@ def setup_aws_instance(
     Sets up an AWS EC2 instance and returns its details.
     Returns a JSON with instance information and credentials.
     """
-    ec2 = boto3.client("ec2")
+    ec2 = boto3.client("ec2", region_name="us-east-2")
 
     timestamp = datetime.now().strftime("%m%d-%H%M%S%f")[:-3]
     key_name = f"key-{timestamp}"
@@ -54,7 +54,6 @@ def setup_aws_instance(
             "ip_address": public_ip,
             "key_path": key_path,
         }
-
 
     except Exception as e:
         try:
