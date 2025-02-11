@@ -115,22 +115,41 @@ def handle_server_request(ack, body, client):
             }
         )
 
-        client.chat_postMessage(
+        client.chat_postEphemeral(
             channel=body["channel_id"],
+            user=body["user_id"],
             text="🔄 Your server is being provisioned. This may take a few minutes...",
         )
 
         def provision_server():
             try:
-                instance = setup_aws_instance()
-                client.chat_postMessage(
-                    channel=body["channel_id"],
-                    text=f"✅ Server has been provisioned successfully!\nInstance ID: {instance.id}",
+                instance_data = setup_aws_instance()
+
+                row_index, _ = sheet.get_row("user_id", body["user_id"])
+                sheet.update(
+                    row_index,
+                    {
+                        "instance_id": instance_data["instance_id"],
+                        "key_id": instance_data["key_id"],
+                        "ip_address": instance_data["ip_address"],
+                        "status": "ready",
+                    },
+                )
+
+                client.files_upload(
+                    channels=body["user_id"],
+                    filename=instance_data["key_id"] + ".pem",
+                    file=instance_data["key_path"],
+                    initial_comment=f"✅ Server has been provisioned successfully!\n"
+                    f"Instance ID: {instance_data['instance_id']}\n"
+                    f"IP Address: {instance_data['ip_address']}\n"
+                    f"Username: {instance_data['username']}\n"
+                    f"Your SSH private key is attached above.",
                 )
             except Exception as e:
                 logger.error(f"Error in server provisioning: {str(e)}")
                 client.chat_postMessage(
-                    channel=body["channel_id"],
+                    channel=body["user_id"],
                     text="❌ Server provisioning failed. Please try again.",
                 )
 
