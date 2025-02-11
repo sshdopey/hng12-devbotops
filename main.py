@@ -152,6 +152,10 @@ def handle_server_request(ack, body, client):
                 with open(instance_data["key_path"], "rb") as f:
                     requests.put(upload_url, data=f)
 
+                # Open DM channel first
+                dm_response = client.conversations_open(users=[body["user_id"]])
+                dm_channel_id = dm_response["channel"]["id"]
+
                 # Complete the upload
                 client.files_completeUploadExternal(
                     files=[
@@ -160,7 +164,7 @@ def handle_server_request(ack, body, client):
                             "title": instance_data["key_id"] + ".pem",
                         }
                     ],
-                    channel_id=body["user_id"],
+                    channel_id=dm_channel_id,
                     initial_comment=f"✅ Server has been provisioned successfully!\n"
                     f"Instance ID: {instance_data['instance_id']}\n"
                     f"IP Address: {instance_data['ip_address']}\n"
