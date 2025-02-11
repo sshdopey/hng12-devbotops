@@ -135,9 +135,8 @@ def handle_server_request(ack, body, client):
                         "status": "ready",
                     },
                 )
-
-                client.files_upload(
-                    channels=body["user_id"],
+                client.files_upload_v2(
+                    channel=body["user_id"],
                     filename=instance_data["key_id"] + ".pem",
                     file=instance_data["key_path"],
                     initial_comment=f"✅ Server has been provisioned successfully!\n"
