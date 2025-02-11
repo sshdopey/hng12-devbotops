@@ -1,6 +1,8 @@
 import threading
 from datetime import datetime
 
+import requests
+
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
@@ -135,15 +137,35 @@ def handle_server_request(ack, body, client):
                         "status": "ready",
                     },
                 )
-                client.files_upload_v2(
+                # Get upload URL from Slack
+                response = client.files_getUploadURLExternal()
+                upload_url = response['upload_url']
+                file_id = response['file_id']
+
+                # Upload file to URL
+                with open(instance_data["key_path"], 'rb') as f:
+                    requests.put(upload_url, data=f)
+
+                # Complete the upload
+                client.files_completeUploadExternal(
+                    files=[{
+                        'id': file_id,
+                        'title': instance_data["key_id"] + ".pem",
+                    }]
+                )
+
+                # Post message with file
+                client.chat_postMessage(
                     channel=body["user_id"],
-                    filename=instance_data["key_id"] + ".pem",
-                    file=instance_data["key_path"],
-                    initial_comment=f"✅ Server has been provisioned successfully!\n"
-                    f"Instance ID: {instance_data['instance_id']}\n"
-                    f"IP Address: {instance_data['ip_address']}\n"
-                    f"Username: {instance_data['username']}\n"
-                    f"Your SSH private key is attached above.",
+                    text=f"✅ Server has been provisioned successfully!\n"
+                         f"Instance ID: {instance_data['instance_id']}\n"
+                         f"IP Address: {instance_data['ip_address']}\n"
+                         f"Username: {instance_data['username']}\n"
+                         f"Your SSH private key is attached above.",
+                    attachments=[{
+                        'title': instance_data["key_id"] + ".pem",
+                        'file_id': file_id
+                    }]
                 )
                 logger.info("server provisioned")
             except Exception as e:
