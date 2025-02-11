@@ -268,7 +268,7 @@ async def stage2():
 class StageTwoBackend:
     next_emoji = ":three:"
     channels = ["C08B6GUP4PQ"]
-    next_channels = ["C08DA2RDPRN"]
+    next_channels = ["C08DA2RDPRN", "C08CR90L1NE"]
     required_score = 9
     max_trials = 3
     deadline = wat_tz.localize(
