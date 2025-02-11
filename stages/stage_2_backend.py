@@ -53,7 +53,7 @@ class CITester:
                 logger.error(f"Failed to restore main.py: {e}")
                 raise
 
-    def _wait_for_job(self, commit, job_name: str, timeout: int = 180) -> str:
+    def _wait_for_job(self, commit, job_name: str, timeout: int = 300) -> str:
         """Wait for a specific job to complete and return its conclusion."""
         start = time.time()
         while time.time() - start < timeout:
