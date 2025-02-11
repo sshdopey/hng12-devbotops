@@ -15,7 +15,7 @@ def setup_aws_instance(
     """
     ec2 = boto3.client("ec2")
 
-    timestamp = datetime.now().strftime("%y%m%d-%H%M")
+    timestamp = datetime.now().strftime("%m%d-%H%M%S%f")[:-3]
     key_name = f"key-{timestamp}"
 
     key_dir = os.path.expanduser("~/.aws/keys")
