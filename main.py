@@ -138,6 +138,14 @@ def handle_server_request(ack, body, client):
                         "status": "ready",
                     },
                 )
+
+                # First open DM conversation
+                dm_response = client.conversations_open(users=[body["user_id"]])
+                if not dm_response["ok"]:
+                    raise Exception("Failed to open DM channel")
+                
+                dm_channel_id = dm_response["channel"]["id"]
+
                 # Get upload URL from Slack
                 key_file_path = instance_data["key_path"]
                 key_file_size = os.path.getsize(key_file_path)
@@ -152,6 +160,7 @@ def handle_server_request(ack, body, client):
                 with open(instance_data["key_path"], "rb") as f:
                     requests.put(upload_url, data=f)
 
+                # Complete upload and share in DM
                 client.files_completeUploadExternal(
                     files=[
                         {
@@ -159,25 +168,27 @@ def handle_server_request(ack, body, client):
                             "title": instance_data["key_id"] + ".pem",
                         }
                     ],
-                    channel_id=body["channel_id"]
+                    channel_id=dm_channel_id  # Use DM channel ID here
                 )
                 
                 client.chat_postMessage(
-                    channel=body["user_id"],
+                    channel=dm_channel_id,  # Use DM channel ID here 
                     text=f"✅ Server has been provisioned successfully!\n"
-                         f"Instance ID: {instance_data['instance_id']}\n"
-                         f"IP Address: {instance_data['ip_address']}\n"
-                         f"Username: {instance_data['username']}\n"
-                         f"Your SSH private key is attached above.",
+                        f"Instance ID: {instance_data['instance_id']}\n"
+                        f"IP Address: {instance_data['ip_address']}\n"
+                        f"Username: {instance_data['username']}\n"
+                        f"Your SSH private key is attached above.",
                     attachments=[{"file_id": file_id}]
                 )
                 logger.info("server provisioned")
+                
             except Exception as e:
                 logger.error(f"Error in server provisioning: {str(e)}")
                 client.chat_postMessage(
                     channel=body["user_id"],
                     text="❌ Server provisioning failed. Please try again.",
                 )
+
 
         thread = threading.Thread(target=provision_server)
         thread.start()
