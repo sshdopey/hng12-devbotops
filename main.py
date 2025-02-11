@@ -123,70 +123,79 @@ def handle_server_request(ack, body, client):
             user=body["user_id"],
             text="🔄 Your server is being provisioned. This may take a few minutes...",
         )
-
         def provision_server():
             try:
+                logger.info("Starting server provisioning process...")
                 instance_data = setup_aws_instance()
+                logger.info(f"AWS instance created successfully: {instance_data['instance_id']}")
 
+                logger.info("Updating spreadsheet with instance data...")
                 row_index, _ = sheet.get_row("user_id", body["user_id"])
                 sheet.update(
                     row_index,
                     {
-                        "instance_id": instance_data["instance_id"],
-                        "key_id": instance_data["key_id"],
-                        "ip_address": instance_data["ip_address"],
-                        "status": "ready",
+                    "instance_id": instance_data["instance_id"],
+                    "key_id": instance_data["key_id"],
+                    "ip_address": instance_data["ip_address"],
+                    "status": "ready",
                     },
                 )
-                # First open DM conversation
-                dm_response = client.conversations_open(
-                    users=[body["user_id"]]
-                )
+                logger.info("Spreadsheet updated successfully")
+
+                logger.info("Opening DM conversation with user...")
+                dm_response = client.conversations_open(users=[body["user_id"]])
                 if not dm_response["ok"]:
                     raise Exception("Failed to open DM channel")
-
+                logger.info("DM conversation opened successfully")
+                
                 dm_channel_id = dm_response["channel"]["id"]
 
-                # Get upload URL from Slack
+                logger.info("Preparing to upload SSH key...")
                 key_file_path = instance_data["key_path"]
                 key_file_size = os.path.getsize(key_file_path)
+                logger.info(f"Key file size: {key_file_size} bytes")
+                
+                logger.info("Getting upload URL from Slack...")
                 response = client.files_getUploadURLExternal(
                     filename=instance_data["key_id"] + ".pem",
                     length=key_file_size,
                 )
                 upload_url = response["upload_url"]
                 file_id = response["file_id"]
-                logger.info(f"Upload response: {response}")
+                logger.info(f"Got upload URL and file_id: {file_id}")
 
-                # Upload file to URL
+                logger.info("Uploading key file to Slack...")
                 with open(instance_data["key_path"], "rb") as f:
-                    requests.put(upload_url, data=f)
+                    upload_response = requests.put(upload_url, data=f)
+                logger.info(f"Upload status code: {upload_response.status_code}")
 
-                # Complete upload and get file info
+                logger.info("Completing file upload...")
                 result = client.files_completeUploadExternal(
                     files=[
-                        {
-                            "id": file_id,
-                            "title": instance_data["key_id"] + ".pem",
-                        }
+                    {
+                        "id": file_id,
+                        "title": instance_data["key_id"] + ".pem",
+                    }
                     ],
-                    channel_id=dm_channel_id,
+                    channel_id=dm_channel_id
                 )
-                logger.info(result)
-                # Get the file URL from the response
+                logger.info("File upload completed successfully")
+                
                 file_url = result["files"][0]["url_private"]
-
+                
+                logger.info("Sending success message to user...")
                 client.chat_postMessage(
                     channel=dm_channel_id,
                     text=f"✅ Server has been provisioned successfully!\n"
                     f"Instance ID: {instance_data['instance_id']}\n"
                     f"IP Address: {instance_data['ip_address']}\n"
                     f"Username: {instance_data['username']}\n"
-                    f"Your SSH private key can be downloaded from: {file_url}",
+                    f"Your SSH private key can be downloaded from: {file_url}"
                 )
-                logger.info("server provisioned")
+                logger.info("Server provisioning completed successfully")
             except Exception as e:
                 logger.error(f"Error in server provisioning: {str(e)}")
+                logger.exception("Full traceback:")
                 client.chat_postMessage(
                     channel=body["user_id"],
                     text="❌ Server provisioning failed. Please try again.",
