@@ -105,7 +105,7 @@ def handle_server_request(ack, body, client):
 
         sheet.append(
             {
-                "timestamp": body["command"]["ts"],
+                "timestamp": body["ts"],
                 "display_name": body["user_name"],
                 "user_id": body["user_id"],
                 "status": "provisioning",
