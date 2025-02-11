@@ -163,6 +163,7 @@ def handle_server_request(ack, body, client):
                 upload_url = response["upload_url"]
                 file_id = response["file_id"]
                 logger.info(f"Got upload URL and file_id: {file_id}")
+                logger.info(response)
 
                 logger.info("Uploading key file to Slack...")
                 with open(instance_data["key_path"], "rb") as f:
@@ -180,6 +181,7 @@ def handle_server_request(ack, body, client):
                     channel_id=dm_channel_id
                 )
                 logger.info("File upload completed successfully")
+                logger.info(result)
                 
                 file_url = result["files"][0]["url_private"]
                 
