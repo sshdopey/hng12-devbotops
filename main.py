@@ -2,11 +2,14 @@ from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
 from config import Config, logger
+from spreadsheet import Sheet
 from stages.stage_0 import StageZero
 from stages.stage_1 import StageOne
 from stages.stage_2 import StageTwo
 from stages.stage_2_backend import StageTwoBackend
 from utils import get_stage
+from server.aws import setup_aws_instance
+import threading
 
 app = App(
     token=Config.SLACK_BOT_TOKEN, signing_secret=Config.SLACK_SIGNING_SECRET
@@ -65,6 +68,79 @@ def handle_submit(ack, body, client):
             text="🔧 Oops! Something went wrong. Please try again.",
         )
 
+@app.command("/request-server")
+def handle_server_request(ack, body, client):
+    """Handle server request command"""
+    try:
+        sheet = Sheet(
+            "",
+            {
+                "A": "timestamp",
+                "B": "display_name",
+                "C": "user_id",
+                "D": "instance_id",
+                "E": "key_id",
+                "F": "ip_address",
+                "G": "status",
+            },
+        )
+        ack()
+
+        existing_request = sheet.get_row("user_id", body["user_id"])
+        if existing_request:
+            _, row_data = existing_request
+            if row_data["status"] == "provisioning":
+                client.chat_postEphemeral(
+                    channel=body["channel_id"],
+                    user=body["user_id"],
+                    text="⚠️ You already have a server being provisioned. Please wait for it to complete.",
+                )
+                return
+            client.chat_postEphemeral(
+                channel=body["channel_id"],
+                user=body["user_id"],
+                text="⚠️ You have already been provided a server. Multiple server requests are not allowed.",
+            )
+            return
+
+        sheet.append(
+            {
+                "timestamp": body["command"]["ts"],
+                "display_name": body["user_name"],
+                "user_id": body["user_id"],
+                "status": "provisioning",
+            }
+        )
+        
+        client.chat_postMessage(
+            channel=body["channel_id"],
+            text="🔄 Your server is being provisioned. This may take a few minutes...",
+        )
+
+        def provision_server():
+            try:
+                instance = setup_aws_instance()
+                client.chat_postMessage(
+                    channel=body["channel_id"],
+                    text=f"✅ Server has been provisioned successfully!\nInstance ID: {instance.id}",
+                )
+            except Exception as e:
+                logger.error(f"Error in server provisioning: {str(e)}")
+                client.chat_postMessage(
+                    channel=body["channel_id"],
+                    text="❌ Server provisioning failed. Please try again.",
+                )
+
+        thread = threading.Thread(target=provision_server)
+        thread.start()
+
+    except Exception as e:
+        logger.error(f"Error handling server request: {str(e)}")
+        client.chat_postEphemeral(
+            channel=body["channel_id"],
+            user=body["user_id"],
+            text="🔧 Oops! Something went wrong setting up the server. Please try again.",
+        )
 
 @app.view("submission")
 def handle_submission(ack, body, client):
