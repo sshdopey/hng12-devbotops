@@ -159,7 +159,7 @@ def handle_server_request(ack, body, client):
                             "title": instance_data["key_id"] + ".pem",
                         }
                     ],
-                    channel_id=body["user_id"]
+                    channel_id=body["channel_id"]
                 )
                 
                 client.chat_postMessage(
