@@ -140,12 +140,10 @@ def handle_server_request(ack, body, client):
                 )
 
                 # First open DM conversation
-                dm_response = client.conversations_open(
-                    users=[body["user_id"]]
-                )
+                dm_response = client.conversations_open(users=[body["user_id"]])
                 if not dm_response["ok"]:
                     raise Exception("Failed to open DM channel")
-
+                
                 dm_channel_id = dm_response["channel"]["id"]
 
                 # Get upload URL from Slack
@@ -161,37 +159,39 @@ def handle_server_request(ack, body, client):
                 # Upload file to URL
                 with open(instance_data["key_path"], "rb") as f:
                     requests.put(upload_url, data=f)
-                    # Complete upload and share in DM
-                    client.files_completeUploadExternal(
-                        files=[
-                            {
-                                "id": file_id,
-                                "title": instance_data["key_id"] + ".pem",
-                            }
-                        ],
-                        channel_id=dm_channel_id,  # Use DM channel ID here
-                    )
 
-                    # Share file publicly and get URL
-                    file_share = client.files_sharedPublicURL(file=file_id)
-                    public_url = file_share["file"]["permalink_public"]
-
-                    client.chat_postMessage(
-                        channel=dm_channel_id,  # Use DM channel ID here
-                        text=f"✅ Server has been provisioned successfully!\n"
+                # Complete upload and get shared file info
+                client.files_completeUploadExternal(
+                    files=[
+                        {
+                            "id": file_id,
+                            "title": instance_data["key_id"] + ".pem",
+                        }
+                    ],
+                    channel_id=dm_channel_id
+                )
+                
+                # Get file info to get permalink
+                file_info = client.files_info(file=file_id)
+                file_url = file_info["file"]["permalink"]
+                
+                client.chat_postMessage(
+                    channel=dm_channel_id,
+                    text=f"✅ Server has been provisioned successfully!\n"
                         f"Instance ID: {instance_data['instance_id']}\n"
                         f"IP Address: {instance_data['ip_address']}\n"
                         f"Username: {instance_data['username']}\n"
-                        f"SSH Key Download Link: {public_url}\n",
-                    )
+                        f"Download your SSH private key here: {file_url}"
+                )
                 logger.info("server provisioned")
-
+                
             except Exception as e:
                 logger.error(f"Error in server provisioning: {str(e)}")
                 client.chat_postMessage(
                     channel=body["user_id"],
                     text="❌ Server provisioning failed. Please try again.",
                 )
+
 
         thread = threading.Thread(target=provision_server)
         thread.start()

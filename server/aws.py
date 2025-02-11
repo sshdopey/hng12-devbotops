@@ -121,3 +121,31 @@ def ensure_security_group(group_name="default-sg"):
             ],
         )
         return security_group_id
+
+def destroy_all_instances():
+    """Destroys all EC2 instances in us-east-1 and us-east-2"""
+    regions = ['us-east-1', 'us-east-2']
+    
+    for region in regions:
+        ec2 = boto3.client('ec2', region_name=region)
+        
+        # Get all instances
+        instances = ec2.describe_instances()
+        
+        # Collect all instance IDs
+        instance_ids = []
+        for reservation in instances['Reservations']:
+            for instance in reservation['Instances']:
+                if instance['State']['Name'] != 'terminated':
+                    instance_ids.append(instance['InstanceId'])
+        
+        # Terminate instances if any exist
+        if instance_ids:
+            try:
+                ec2.terminate_instances(InstanceIds=instance_ids)
+                print(f"Terminated {len(instance_ids)} instances in {region}")
+            except Exception as e:
+                print(f"Error terminating instances in {region}: {str(e)}")
+                
+if __name__ == "__main__":
+    destroy_all_instances()
