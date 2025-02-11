@@ -1,5 +1,4 @@
 import boto3
-import json
 import os
 from datetime import datetime
 
@@ -48,7 +47,7 @@ def setup_aws_instance(
             "PublicIpAddress"
         ]
 
-        instance_data = {
+        return {
             "instance_id": instance_id,
             "key_id": key_name,
             "username": "ubuntu",
@@ -56,7 +55,6 @@ def setup_aws_instance(
             "key_path": key_path,
         }
 
-        return json.dumps(instance_data, indent=2)
 
     except Exception as e:
         try:

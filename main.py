@@ -123,7 +123,7 @@ def handle_server_request(ack, body, client):
 
         def provision_server():
             try:
-                instance_data = dict(setup_aws_instance())
+                instance_data = setup_aws_instance()
 
                 row_index, _ = sheet.get_row("user_id", body["user_id"])
                 sheet.update(
