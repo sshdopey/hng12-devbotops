@@ -289,20 +289,20 @@ class StageTwoBackend:
 
     def submission_view(self, channel: str) -> dict:
         """Returns the Slack modal view for Stage 2 submission."""
-        # return {
-        #     "type": "modal",
-        #     "title": {"type": "plain_text", "text": "Backend Stage 2"},
-        #     "blocks": [
-        #         {
-        #             "type": "section",
-        #             "text": {
-        #                 "type": "mrkdwn",
-        #                 "text": "🛠 The bot is currently under maintenance. Please try again later.",
-        #             },
-        #         }
-        #     ],
-        #     "close": {"type": "plain_text", "text": "Close"},
-        # }
+        return {
+            "type": "modal",
+            "title": {"type": "plain_text", "text": "Backend Stage 2"},
+            "blocks": [
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "🛠 The bot is currently under maintenance. Please try again later.",
+                    },
+                }
+            ],
+            "close": {"type": "plain_text", "text": "Close"},
+        }
         now = datetime.now(wat_tz)
         if now > self.deadline:
             return {
