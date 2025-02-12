@@ -36,7 +36,7 @@ def setup_aws_instance(
     Sets up an AWS EC2 instance and returns its details.
     Returns a JSON with instance information and credentials.
     """
-    ec2 = boto3.client("ec2", region_name="us-east-1")
+    ec2 = boto3.client("ec2", region_name="us-east-2")
 
     timestamp = datetime.now().strftime("%m%d-%H%M%S%f")[:-3]
     key_name = f"key-{timestamp}"
@@ -139,9 +139,8 @@ def ensure_security_group(group_name="default-sg"):
         )
         return security_group_id
 
-
 def destroy_all_instances():
-    """Destroys all EC2 instances in us-east-1 and us-east-2"""
+    """Destroys all EC2 instances and keys in us-east-1 and us-east-2, and cleans up S3 keys"""
     regions = ['us-east-1', 'us-east-2']
     
     for region in regions:
@@ -164,6 +163,26 @@ def destroy_all_instances():
                 print(f"Terminated {len(instance_ids)} instances in {region}")
             except Exception as e:
                 print(f"Error terminating instances in {region}: {str(e)}")
+        
+        # Delete all key pairs
+        try:
+            keys = ec2.describe_key_pairs()
+            for key in keys['KeyPairs']:
+                ec2.delete_key_pair(KeyName=key['KeyName'])
+                print(f"Deleted key pair {key['KeyName']} in {region}")
+        except Exception as e:
+            print(f"Error deleting keys in {region}: {str(e)}")
+    
+    # Clean up S3 keys
+    try:
+        s3 = boto3.client('s3')
+        response = s3.list_objects_v2(Bucket='hng12-devbotops', Prefix='keys/')
+        if 'Contents' in response:
+            for obj in response['Contents']:
+                s3.delete_object(Bucket='hng12-devbotops', Key=obj['Key'])
+            print("Cleaned up keys from S3")
+    except Exception as e:
+        print(f"Error cleaning up S3 keys: {str(e)}")
 
 
 if __name__ == "__main__":
