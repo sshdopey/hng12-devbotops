@@ -77,6 +77,7 @@ def handle_submit(ack, body, client):
 @app.command("/request-server")
 def handle_server_request(ack, body, client):
     """Handle server request command"""
+    
     try:
         sheet = Sheet(
             "1b9zb83mMZXoJn3B191oQru3_ZHq2COxqmbYtbH0xhuo",
@@ -91,6 +92,27 @@ def handle_server_request(ack, body, client):
             },
         )
         ack()
+
+        maintenance_mode = True  # You can set this as an environment variable or config setting
+        if maintenance_mode:
+            client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "title": {"type": "plain_text", "text": "Backend Stage 2"},
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "🛠 The bot is currently under maintenance. Please try again later 😠.",
+                            },
+                        }
+                    ],
+                    "close": {"type": "plain_text", "text": "Close"},
+                }
+            )
+            return
 
         existing_request = sheet.get_row("user_id", body["user_id"])
         if existing_request:
