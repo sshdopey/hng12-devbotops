@@ -169,13 +169,13 @@ def handle_server_request(ack, body, client):
                 with open(instance_data["key_path"], "rb") as f:
                     upload_response = requests.put(upload_url, data=f)
                 logger.info(f"Upload status code: {upload_response.status_code}")
-
                 logger.info("Completing file upload...")
                 result = client.files_completeUploadExternal(
                     files=[
                     {
                         "id": file_id,
                         "title": instance_data["key_id"] + ".pem",
+                        "is_public": True
                     }
                     ],
                     channel_id=dm_channel_id
