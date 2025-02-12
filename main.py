@@ -123,76 +123,33 @@ def handle_server_request(ack, body, client):
             user=body["user_id"],
             text="🔄 Your server is being provisioned. This may take a few minutes...",
         )
+
         def provision_server():
             try:
                 logger.info("Starting server provisioning process...")
                 instance_data = setup_aws_instance()
-                logger.info(f"AWS instance created successfully: {instance_data['instance_id']}")
+                logger.info(
+                    f"AWS instance created successfully: {instance_data['instance_id']}"
+                )
 
                 logger.info("Updating spreadsheet with instance data...")
                 row_index, _ = sheet.get_row("user_id", body["user_id"])
                 sheet.update(
                     row_index,
                     {
-                    "instance_id": instance_data["instance_id"],
-                    "key_id": instance_data["key_id"],
-                    "ip_address": instance_data["ip_address"],
-                    "status": "ready",
+                        "instance_id": instance_data["instance_id"],
+                        "key_id": instance_data["key_id"],
+                        "ip_address": instance_data["ip_address"],
+                        "status": "ready",
                     },
                 )
-                logger.info("Spreadsheet updated successfully")
-
-                logger.info("Opening DM conversation with user...")
-                dm_response = client.conversations_open(users=[body["user_id"]])
-                if not dm_response["ok"]:
-                    raise Exception("Failed to open DM channel")
-                logger.info("DM conversation opened successfully")
-                
-                dm_channel_id = dm_response["channel"]["id"]
-
-                logger.info("Preparing to upload SSH key...")
-                key_file_path = instance_data["key_path"]
-                key_file_size = os.path.getsize(key_file_path)
-                logger.info(f"Key file size: {key_file_size} bytes")
-                
-                logger.info("Getting upload URL from Slack...")
-                response = client.files_getUploadURLExternal(
-                    filename=instance_data["key_id"] + ".pem",
-                    length=key_file_size,
-                )
-                upload_url = response["upload_url"]
-                file_id = response["file_id"]
-                logger.info(f"Got upload URL and file_id: {file_id}")
-                logger.info(response)
-
-                logger.info("Uploading key file to Slack...")
-                with open(instance_data["key_path"], "rb") as f:
-                    upload_response = requests.put(upload_url, data=f)
-                logger.info(f"Upload status code: {upload_response.status_code}")
-                logger.info("Completing file upload...")
-                result = client.files_completeUploadExternal(
-                    files=[
-                    {
-                        "id": file_id,
-                        "title": instance_data["key_id"] + ".pem",
-                        "is_public": True
-                    }
-                    ],
-                    channel_id=dm_channel_id
-                )
-                logger.info("File upload completed successfully")
-                logger.info(result)
-                
-                file_url = result["files"][0]["url_private"]
-                
-                logger.info("Sending success message to user...")
                 client.chat_postMessage(
-                    channel=dm_channel_id,
+                    channel=body["user_id"],
                     text=f"✅ Server has been provisioned successfully!\n"
                     f"Instance ID: {instance_data['instance_id']}\n"
                     f"IP Address: {instance_data['ip_address']}\n"
                     f"Username: {instance_data['username']}\n"
-                    f"Your SSH private key can be downloaded from: {file_url}"
+                    f"Your SSH private key can be downloaded from: {instance_data["key_url"]}",
                 )
                 logger.info("Server provisioning completed successfully")
             except Exception as e:

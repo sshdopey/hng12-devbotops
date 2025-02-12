@@ -1,6 +1,31 @@
-import boto3
-import os
 from datetime import datetime
+
+import boto3
+
+
+def upload_to_s3(key_material, key_name):
+    """Upload key to S3 and return the download URL"""
+    s3 = boto3.client('s3')
+    bucket_name = 'hng12'
+    key_path = f'keys/{key_name}.pem'
+    
+    try:
+        s3.put_object(
+            Bucket=bucket_name,
+            Key=key_path,
+            Body=key_material,
+            ContentType='text/plain'
+        )
+        
+        # Generate presigned URL that expires in 1 hour
+        url = s3.generate_presigned_url(
+            'get_object',
+            Params={'Bucket': bucket_name, 'Key': key_path},
+            ExpiresIn=3600
+        )
+        return url
+    except Exception as e:
+        raise Exception(f"Failed to upload key to S3: {str(e)}")
 
 
 def setup_aws_instance(
@@ -16,16 +41,11 @@ def setup_aws_instance(
     timestamp = datetime.now().strftime("%m%d-%H%M%S%f")[:-3]
     key_name = f"key-{timestamp}"
 
-    key_dir = os.path.expanduser("~/.aws/keys")
-    os.makedirs(key_dir, exist_ok=True)
-    key_path = os.path.join(key_dir, f"{key_name}.pem")
-
     try:
         key_pair = ec2.create_key_pair(KeyName=key_name)
-
-        with open(key_path, "w") as key_file:
-            key_file.write(key_pair["KeyMaterial"])
-        os.chmod(key_path, 0o400)
+        
+        # Upload key to S3 instead of saving locally
+        key_url = upload_to_s3(key_pair["KeyMaterial"], key_name)
 
         ami_id = get_ubuntu_ami()
         security_group_id = ensure_security_group()
@@ -44,23 +64,22 @@ def setup_aws_instance(
         waiter.wait(InstanceIds=[instance_id])
 
         response = ec2.describe_instances(InstanceIds=[instance_id])
-        public_ip = response["Reservations"][0]["Instances"][0][
-            "PublicIpAddress"
-        ]
+        public_ip = response["Reservations"][0]["Instances"][0]["PublicIpAddress"]
 
         return {
             "instance_id": instance_id,
             "key_id": key_name,
             "username": "ubuntu",
             "ip_address": public_ip,
-            "key_path": key_path,
+            "key_url": key_url,
         }
 
     except Exception as e:
         try:
             ec2.delete_key_pair(KeyName=key_name)
-            if os.path.exists(key_path):
-                os.remove(key_path)
+            # Delete from S3 if exists
+            s3 = boto3.client('s3')
+            s3.delete_object(Bucket='hng12', Key=f'keys/{key_name}.pem')
         except:
             pass
         raise Exception(f"Failed to setup AWS instance: {str(e)}")
@@ -73,9 +92,7 @@ def get_ubuntu_ami():
         Filters=[
             {
                 "Name": "name",
-                "Values": [
-                    "ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"
-                ],
+                "Values": ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*"],
             },
             {"Name": "state", "Values": ["available"]},
             {"Name": "architecture", "Values": ["x86_64"]},
@@ -122,6 +139,7 @@ def ensure_security_group(group_name="default-sg"):
         )
         return security_group_id
 
+
 def destroy_all_instances():
     """Destroys all EC2 instances in us-east-1 and us-east-2"""
     regions = ['us-east-1', 'us-east-2']
@@ -146,6 +164,7 @@ def destroy_all_instances():
                 print(f"Terminated {len(instance_ids)} instances in {region}")
             except Exception as e:
                 print(f"Error terminating instances in {region}: {str(e)}")
-                
+
+
 if __name__ == "__main__":
     destroy_all_instances()
