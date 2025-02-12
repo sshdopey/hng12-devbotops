@@ -6,7 +6,7 @@ import boto3
 def upload_to_s3(key_material, key_name):
     """Upload key to S3 and return the download URL"""
     s3 = boto3.client('s3')
-    bucket_name = 'hng12'
+    bucket_name = 'hng12-devbotops'
     key_path = f'keys/{key_name}.pem'
     
     try:
