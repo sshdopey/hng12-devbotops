@@ -326,6 +326,13 @@ class StageTwo:
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
+                        "text": "⚠️ *IMPORTANT:* Before submitting, please ensure you have invited *hng12-devbot2* as a collaborator to your repository.",
+                    },
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
                         "text": "ℹ️ Please submit the *domain/subdomain* of the deployed application (e.g., `https://your-domain.com`).",
                     },
                 },

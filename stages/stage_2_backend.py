@@ -309,7 +309,6 @@ class StageTwoBackend:
         days = time_left.days
         hours = time_left.seconds // 3600
         minutes = (time_left.seconds % 3600) // 60
-
         return {
             "type": "modal",
             "title": {"type": "plain_text", "text": "Backend Stage 2"},
@@ -319,6 +318,13 @@ class StageTwoBackend:
                     "text": {
                         "type": "mrkdwn",
                         "text": f"⏰ Time remaining: {days} days, {hours} hours, {minutes} minutes",
+                    },
+                },
+                {
+                    "type": "section",
+                    "text": {
+                        "type": "mrkdwn",
+                        "text": "⚠️ *IMPORTANT:* Before submitting, please ensure you have invited *hng12-devbot2* as a collaborator to your repository.",
                     },
                 },
                 {
