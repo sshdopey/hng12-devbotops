@@ -73,7 +73,7 @@ class StageTwoBackend:
                     "type": "section",
                     "text": {
                         "type": "mrkdwn",
-                        "text": "⚠️ *IMPORTANT:* Before submitting, please ensure you have invited *hng12-devbot2* as a collaborator to your repository.",
+                        "text": "⚠️ *IMPORTANT:* Before submitting, please ensure you have installed the *HNG12 Bot* GitHub App on your repository: https://github.com/apps/hng12-bot",
                     },
                 },
                 {
@@ -127,7 +127,6 @@ class StageTwoBackend:
         result = []
         checks = [
             (grader.validate_initial_endpoint, 2),
-            (grader.check_repo_access, 1),
             (grader.test_bad_pr, 1),
             (grader.test_good_pr, 2),
             (grader.check_deployment, 2),
@@ -254,11 +253,10 @@ class StageTwoBackend:
 
             data["score"] = "0"
             self.sheet.update(submission[0], data)
+
             error_msg = (
                 "❌ Invalid GitHub repository. Please ensure:\n"
-                "• Repository is public\n"
-                "• Bot is added as collaborator\n"
-                "• URL does not end with .git"
+                "• HNG12 Bot GitHub App is installed on your repository: https://github.com/apps/hng12-bot"
                 f"\nAttempts used: {trials + 1}/{self.max_trials}"
             )
             client.chat_postEphemeral(

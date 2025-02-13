@@ -1,10 +1,11 @@
-import requests
-import jwt
-import time
 from dataclasses import dataclass
+import time
 from typing import Optional
-from github import Github
+from github import GithubIntegration
+from github.Auth import AppAuth
 import logging
+
+import requests
 
 
 @dataclass
@@ -16,20 +17,20 @@ class ValidationResult:
 
 class StageTwoGrader:
     def __init__(self, repo_name: str, deployed_url: str):
-        with open("../hng12-bot.pem", "r") as key_file:
-            self.private_key = key_file.read()
+        with open("hng12-bot.pem", "r") as key_file:
+            private_key = key_file.read()
 
-        jwt_token = jwt.encode(
-            {
-                "iat": int(time.time()),
-                "exp": int(time.time()) + (10 * 60),
-                "iss": 1144219,
-            },
-            self.private_key,
-            algorithm="RS256",
+        client_id = "Iv23li3QtBHrdNGU1816"
+        self.auth = AppAuth(client_id, private_key)
+
+        owner, repo = repo_name.split("/")
+        self.git_integration = GithubIntegration(auth=self.auth)
+        self.installation = self.git_integration.get_repo_installation(
+            owner, repo
         )
-
-        self.github = Github(jwt_token)
+        self.github = self.git_integration.get_github_for_installation(
+            self.installation.id
+        )
         self.repo = self.github.get_repo(repo_name)
         self.deployed_url = deployed_url.rstrip("/")
         self.original_main_content = None
@@ -123,26 +124,6 @@ class StageTwoGrader:
         except requests.RequestException as e:
             return ValidationResult(
                 False, "Failed to connect to API endpoints", str(e)
-            )
-
-    def check_repo_access(self) -> ValidationResult:
-        """Verify GitHub App has necessary repository access"""
-        try:
-            installation = self.repo.get_installation()
-            if not installation:
-                return ValidationResult(
-                    False,
-                    "GitHub App is not installed on this repository",
-                    "Please install the GitHub App on your repository",
-                )
-
-            self.repo.get_contents(".")
-            return ValidationResult(
-                True, "GitHub App access verified successfully"
-            )
-        except Exception as e:
-            return ValidationResult(
-                False, "Failed to verify repository access", str(e)
             )
 
     def test_bad_pr(self) -> ValidationResult:
