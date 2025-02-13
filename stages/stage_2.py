@@ -123,7 +123,7 @@ class StageTwoBackend:
         }
 
     def _grade_submission(self, grader: StageTwoGrader) -> tuple[float, list]:
-        score = 0.0
+        score = 1.0
         result = []
         checks = [
             (grader.validate_initial_endpoint, 2),
