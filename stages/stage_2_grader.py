@@ -1,12 +1,10 @@
-from datetime import datetime
-from typing import Any
 import requests
 import jwt
 import time
 from dataclasses import dataclass
 from typing import Optional
-from github import Github, GithubIntegration
-from config import logger
+from github import Github
+import logging
 
 
 @dataclass
@@ -16,53 +14,40 @@ class ValidationResult:
     details: Optional[str] = None
 
 
-class GitHubAppAuth:
-    def __init__(self, app_id: int = 1144219, private_key_path: str = '../hg12-bot.2025-02-13.private-key.pem'):
-        self.app_id = app_id
-        with open(private_key_path, 'r') as key_file:
+class StageTwoGrader:
+    def __init__(self, repo_name: str, deployed_url: str):
+        with open("../hng12-bot.pem", "r") as key_file:
             self.private_key = key_file.read()
 
-    def create_jwt(self) -> str:
-        now = int(time.time())
-        payload = {
-            'iat': now,
-            'exp': now + (10 * 60),  # JWT valid for 10 minutes
-            'iss': self.app_id
-        }
-        return jwt.encode(payload, self.private_key, algorithm='RS256')
-
-    def get_installation_token(self, installation_id: int) -> str:
-        jwt_token = self.create_jwt()
-        headers = {
-            'Authorization': f'Bearer {jwt_token}',
-            'Accept': 'application/vnd.github.v3+json'
-        }
-        response = requests.post(
-            f'https://api.github.com/app/installations/{installation_id}/access_tokens',
-            headers=headers
+        jwt_token = jwt.encode(
+            {
+                "iat": int(time.time()),
+                "exp": int(time.time()) + (10 * 60),
+                "iss": 1144219,
+            },
+            self.private_key,
+            algorithm="RS256",
         )
-        response.raise_for_status()
-        return response.json()['token']
 
-
-class CITester:
-    def __init__(self, app_auth: GitHubAppAuth, installation_id: int, repo_name: str, deployed_url: str):
-        token = app_auth.get_installation_token(installation_id)
-        self.github = Github(token)
+        self.github = Github(jwt_token)
         self.repo = self.github.get_repo(repo_name)
         self.deployed_url = deployed_url.rstrip("/")
         self.original_main_content = None
 
     def _save_main_content(self):
+        """Save the original main.py content before making changes"""
         try:
             contents = self.repo.get_contents("main.py", ref="main")
             self.original_main_content = contents.decoded_content.decode(
-                "utf-8")
+                "utf-8"
+            )
+            logging.info("Saved original main.py content")
         except Exception as e:
-            logger.error(f"Failed to save main.py: {e}")
+            logging.error(f"Failed to save main.py: {e}")
             raise
 
     def _restore_main_content(self):
+        """Restore the original main.py content"""
         if self.original_main_content:
             try:
                 contents = self.repo.get_contents("main.py", ref="main")
@@ -73,13 +58,13 @@ class CITester:
                     sha=contents.sha,
                     branch="main",
                 )
-                logger.info("Restored main.py")
+                logging.info("Restored main.py")
             except Exception as e:
-                logger.error(f"Failed to restore main.py: {e}")
+                logging.error(f"Failed to restore main.py: {e}")
                 raise
 
     def _wait_for_job(self, commit, job_name: str, timeout: int = 300) -> str:
-        """Wait for a specific job to complete and return its conclusion."""
+        """Wait for a specific GitHub Actions job to complete"""
         start = time.time()
         while time.time() - start < timeout:
             checks = commit.get_check_runs()
@@ -91,6 +76,7 @@ class CITester:
         return "timeout"
 
     def validate_initial_endpoint(self) -> ValidationResult:
+        """Validate the initial API endpoint setup"""
         expected_book = {
             "id": 1,
             "title": "The Hobbit",
@@ -114,13 +100,13 @@ class CITester:
             if books_response.status_code != 200:
                 return ValidationResult(
                     False,
-                    "The books endpoint is not responding correctly - Expected status code 200",
-                    f"Got status code: {books_response.status_code}. Please check your API implementation.",
+                    "The books endpoint is not responding correctly",
+                    f"Got status code: {books_response.status_code}",
                 )
             if books_response.json() != expected_book:
                 return ValidationResult(
                     False,
-                    "The book data doesn't match the expected format - Please check the book object structure",
+                    "The book data doesn't match the expected format",
                     f"Expected: {expected_book}, Got: {books_response.json()}",
                 )
 
@@ -128,33 +114,39 @@ class CITester:
             if stage2_response.status_code != 404:
                 return ValidationResult(
                     False,
-                    "The /stage2 endpoint should return 404 initially as it hasn't been implemented yet",
+                    "The /stage2 endpoint should return 404 initially",
                     f"Got status code: {stage2_response.status_code}",
                 )
             return ValidationResult(
-                True,
-                "Initial API endpoints are correctly implemented and responding",
+                True, "Initial API endpoints are correctly implemented"
             )
         except requests.RequestException as e:
             return ValidationResult(
-                False, "Failed to connect to your API endpoints", str(e)
+                False, "Failed to connect to API endpoints", str(e)
             )
 
     def check_repo_access(self) -> ValidationResult:
+        """Verify GitHub App has necessary repository access"""
         try:
-            repo = self.repo.get_contents(".")
+            installation = self.repo.get_installation()
+            if not installation:
+                return ValidationResult(
+                    False,
+                    "GitHub App is not installed on this repository",
+                    "Please install the GitHub App on your repository",
+                )
+
+            self.repo.get_contents(".")
             return ValidationResult(
-                True,
-                "Repository access permissions verified successfully"
+                True, "GitHub App access verified successfully"
             )
         except Exception as e:
             return ValidationResult(
-                False,
-                "GitHub App needs appropriate permissions to access the repository",
-                str(e)
+                False, "Failed to verify repository access", str(e)
             )
 
     def test_bad_pr(self) -> ValidationResult:
+        """Test CI pipeline with invalid code"""
         branch_name = f"test-bad-pr-{int(time.time())}"
         try:
             source = self.repo.get_branch("main")
@@ -189,6 +181,7 @@ class CITester:
                 pass
 
     def test_good_pr(self) -> ValidationResult:
+        """Test CI pipeline with valid code changes"""
         branch_name = f"test-good-pr-{int(time.time())}"
         try:
             source = self.repo.get_branch("main")
@@ -239,14 +232,15 @@ async def stage2():
                 pass
 
     def check_deployment(self) -> ValidationResult:
+        """Verify automatic deployment after merge"""
         try:
-            time.sleep(10)  # Wait for deployment to start
+            time.sleep(10)
             latest_commit = self.repo.get_commits()[0]
             result = self._wait_for_job(latest_commit, "deploy")
             return ValidationResult(
                 result == "success",
                 f"Automatic deployment {'completed successfully' if result == 'success' else 'failed'}",
-                f"Deployment status: {result}. Your changes should be automatically deployed when merged.",
+                f"Deployment status: {result}",
             )
         except Exception as e:
             return ValidationResult(
@@ -254,6 +248,7 @@ async def stage2():
             )
 
     def validate_deployed_endpoint(self) -> ValidationResult:
+        """Validate the newly deployed stage2 endpoint"""
         try:
             response = requests.get(f"{self.deployed_url}/stage2")
             if response.status_code != 200:
