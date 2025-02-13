@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from typing import Optional
 from github import Github, GithubIntegration
+from config import logger
 
 
 @dataclass
@@ -16,7 +17,7 @@ class ValidationResult:
 
 
 class GitHubAppAuth:
-    def __init__(self, app_id: int, private_key_path: str = '../hg12-bot.2025-02-13.private-key.pem'):
+    def __init__(self, app_id: int = 1144219, private_key_path: str = '../hg12-bot.2025-02-13.private-key.pem'):
         self.app_id = app_id
         with open(private_key_path, 'r') as key_file:
             self.private_key = key_file.read()
@@ -55,11 +56,12 @@ class CITester:
     def _save_main_content(self):
         try:
             contents = self.repo.get_contents("main.py", ref="main")
-            self.original_main_content = contents.decoded_content.decode("utf-8")
+            self.original_main_content = contents.decoded_content.decode(
+                "utf-8")
         except Exception as e:
             logger.error(f"Failed to save main.py: {e}")
             raise
-    
+
     def _restore_main_content(self):
         if self.original_main_content:
             try:
@@ -75,7 +77,7 @@ class CITester:
             except Exception as e:
                 logger.error(f"Failed to restore main.py: {e}")
                 raise
-    
+
     def _wait_for_job(self, commit, job_name: str, timeout: int = 300) -> str:
         """Wait for a specific job to complete and return its conclusion."""
         start = time.time()
@@ -87,7 +89,7 @@ class CITester:
                         return check.conclusion
             time.sleep(5)
         return "timeout"
-    
+
     def validate_initial_endpoint(self) -> ValidationResult:
         expected_book = {
             "id": 1,
@@ -151,7 +153,7 @@ class CITester:
                 "GitHub App needs appropriate permissions to access the repository",
                 str(e)
             )
-    
+
     def test_bad_pr(self) -> ValidationResult:
         branch_name = f"test-bad-pr-{int(time.time())}"
         try:
@@ -185,7 +187,6 @@ class CITester:
                 self.repo.get_git_ref(f"heads/{branch_name}").delete()
             except:
                 pass
-
 
     def test_good_pr(self) -> ValidationResult:
         branch_name = f"test-good-pr-{int(time.time())}"
