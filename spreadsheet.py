@@ -1,7 +1,4 @@
-import os.path
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from typing import Dict, Any, Tuple, Optional
 
@@ -16,25 +13,12 @@ class Sheet:
         self.service = self._authenticate()
 
     def _authenticate(self):
-        """Handles Google Sheets API authentication."""
-        creds = None
-        if os.path.exists("token.json"):
-            creds = Credentials.from_authorized_user_file(
-                "token.json", self.SCOPES
-            )
-
-        if not creds or not creds.valid:
-            if creds and creds.expired and creds.refresh_token:
-                creds.refresh(Request())
-            else:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    "credentials.json", self.SCOPES
-                )
-                creds = flow.run_local_server(port=0)
-            with open("token.json", "w") as token:
-                token.write(creds.to_json())
-
-        return build("sheets", "v4", credentials=creds, cache_discovery=False)
+        """Handles Google Sheets API authentication using service account."""
+        credentials = service_account.Credentials.from_service_account_file(
+            'token.json', 
+            scopes=self.SCOPES
+        )
+        return build('sheets', 'v4', credentials=credentials, cache_discovery=False)
 
     def get_row(
         self, column_name: str, search_value: Any

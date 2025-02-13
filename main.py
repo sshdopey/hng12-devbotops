@@ -1,8 +1,6 @@
-import os
 import threading
 from datetime import datetime
 
-import requests
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
