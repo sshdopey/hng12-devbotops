@@ -3,4 +3,4 @@
 __pycache__
 *.json
 venv
-hng12-bot.2025-02-13.private-key.pem
+*.pem
