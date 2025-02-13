@@ -37,6 +37,30 @@ def handle_submit(ack, body, client):
     """Handle the /submit command"""
     try:
         ack()
+
+        if Config.MAINTENANCE_MODE:
+            client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "title": {
+                        "type": "plain_text",
+                        "text": "Under Maintenance",
+                    },
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "🛠 The bot is currently under maintenance. Please wait, we'll notify you when submissions resume. The bot needs some rest! 😴",
+                            },
+                        }
+                    ],
+                    "close": {"type": "plain_text", "text": "Close"},
+                },
+            )
+            return
+
         channel_id = body["channel_id"]
         trigger_id = body["trigger_id"]
         stage = get_stage(stages, channel_id)
@@ -72,124 +96,123 @@ def handle_submit(ack, body, client):
         )
 
 
-# @app.command("/request-server")
-# def handle_server_request(ack, body, client):
-#     """Handle server request command"""
-    
-#     try:
-#         sheet = Sheet(
-#             "1b9zb83mMZXoJn3B191oQru3_ZHq2COxqmbYtbH0xhuo",
-#             {
-#                 "A": "timestamp",
-#                 "B": "display_name",
-#                 "C": "user_id",
-#                 "D": "instance_id",
-#                 "E": "key_id",
-#                 "F": "ip_address",
-#                 "G": "status",
-#             },
-#         )
-#         ack()
+@app.command("/request-server")
+def handle_server_request(ack, body, client):
+    """Handle server request command"""
 
-#         maintenance_mode = True  # You can set this as an environment variable or config setting
-#         if maintenance_mode:
-#             client.views_open(
-#                 trigger_id=body["trigger_id"],
-#                 view={
-#                     "type": "modal",
-#                     "title": {"type": "plain_text", "text": "Backend Stage 2"},
-#                     "blocks": [
-#                         {
-#                             "type": "section",
-#                             "text": {
-#                                 "type": "mrkdwn",
-#                                 "text": "🛠 The bot is currently under maintenance. Please try again later 😠.",
-#                             },
-#                         }
-#                     ],
-#                     "close": {"type": "plain_text", "text": "Close"},
-#                 }
-#             )
-#             return
+    try:
+        sheet = Sheet(
+            "1b9zb83mMZXoJn3B191oQru3_ZHq2COxqmbYtbH0xhuo",
+            {
+                "A": "timestamp",
+                "B": "display_name",
+                "C": "user_id",
+                "D": "instance_id",
+                "E": "key_id",
+                "F": "ip_address",
+                "G": "status",
+            },
+        )
+        ack()
 
-#         existing_request = sheet.get_row("user_id", body["user_id"])
-#         if existing_request:
-#             _, row_data = existing_request
-#             if row_data["status"] == "provisioning":
-#                 client.chat_postEphemeral(
-#                     channel=body["channel_id"],
-#                     user=body["user_id"],
-#                     text="⚠️ You already have a server being provisioned. Please wait for it to complete.",
-#                 )
-#                 return
-#             client.chat_postEphemeral(
-#                 channel=body["channel_id"],
-#                 user=body["user_id"],
-#                 text="⚠️ You have already been provided a server. Multiple server requests are not allowed.",
-#             )
-#             return
+        maintenance_mode = True  # You can set this as an environment variable or config setting
+        if maintenance_mode:
+            client.views_open(
+                trigger_id=body["trigger_id"],
+                view={
+                    "type": "modal",
+                    "title": {"type": "plain_text", "text": "Backend Stage 2"},
+                    "blocks": [
+                        {
+                            "type": "section",
+                            "text": {
+                                "type": "mrkdwn",
+                                "text": "🛠 The bot is currently under maintenance. Please try again later 😠.",
+                            },
+                        }
+                    ],
+                    "close": {"type": "plain_text", "text": "Close"},
+                },
+            )
+            return
 
-#         sheet.append(
-#             {
-#                 "timestamp": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
-#                 "display_name": body["user_name"],
-#                 "user_id": body["user_id"],
-#                 "status": "provisioning",
-#             }
-#         )
+        existing_request = sheet.get_row("user_id", body["user_id"])
+        if existing_request:
+            _, row_data = existing_request
+            if row_data["status"] == "provisioning":
+                client.chat_postEphemeral(
+                    channel=body["channel_id"],
+                    user=body["user_id"],
+                    text="⚠️ You already have a server being provisioned. Please wait for it to complete.",
+                )
+                return
+            client.chat_postEphemeral(
+                channel=body["channel_id"],
+                user=body["user_id"],
+                text="⚠️ You have already been provided a server. Multiple server requests are not allowed.",
+            )
+            return
 
-#         client.chat_postEphemeral(
-#             channel=body["channel_id"],
-#             user=body["user_id"],
-#             text="🔄 Your server is being provisioned. This may take a few minutes...",
-#         )
+        sheet.append(
+            {
+                "timestamp": datetime.now().strftime("%m/%d/%Y %H:%M:%S"),
+                "display_name": body["user_name"],
+                "user_id": body["user_id"],
+                "status": "provisioning",
+            }
+        )
 
-#         def provision_server():
-#             try:
-#                 logger.info("Starting server provisioning process...")
-#                 instance_data = setup_aws_instance()
-#                 logger.info(
-#                     f"AWS instance created successfully: {instance_data['instance_id']}"
-#                 )
+        client.chat_postEphemeral(
+            channel=body["channel_id"],
+            user=body["user_id"],
+            text="🔄 Your server is being provisioned. This may take a few minutes...",
+        )
 
-#                 logger.info("Updating spreadsheet with instance data...")
-#                 row_index, _ = sheet.get_row("user_id", body["user_id"])
-#                 sheet.update(
-#                     row_index,
-#                     {
-#                         "instance_id": instance_data["instance_id"],
-#                         "key_id": instance_data["key_id"],
-#                         "ip_address": instance_data["ip_address"],
-#                         "status": "ready",
-#                     },
-#                 )
-#                 client.chat_postMessage(
-#                     channel=body["user_id"],
-#                     text=f"✅ Server has been provisioned successfully!\n"
-#                     f"Instance ID: {instance_data['instance_id']}\n"
-#                     f"IP Address: {instance_data['ip_address']}\n"
-#                     f"Username: {instance_data['username']}\n"
-#                     f"Your SSH private key can be downloaded from: {instance_data["key_url"]}",
-#                 )
-#                 logger.info("Server provisioning completed successfully")
-#             except Exception as e:
-#                 logger.error(f"Error in server provisioning: {str(e)}")
-#                 logger.exception("Full traceback:")
-#                 client.chat_postMessage(
-#                     channel=body["user_id"],
-#                     text="❌ Server provisioning failed. Please try again.",
-#                 )
+        def provision_server():
+            try:
+                logger.info("Starting server provisioning process...")
+                instance_data = setup_aws_instance()
+                logger.info(
+                    f"AWS instance created successfully: {instance_data['instance_id']}"
+                )
 
-#         thread = threading.Thread(target=provision_server)
-#         thread.start()
+                logger.info("Updating spreadsheet with instance data...")
+                row_index, _ = sheet.get_row("user_id", body["user_id"])
+                sheet.update(
+                    row_index,
+                    {
+                        "instance_id": instance_data["instance_id"],
+                        "key_id": instance_data["key_id"],
+                        "ip_address": instance_data["ip_address"],
+                        "status": "ready",
+                    },
+                )
+                client.chat_postMessage(
+                    channel=body["user_id"],
+                    text=f"✅ Server has been provisioned successfully!\n"
+                    f"IP Address: {instance_data['ip_address']}\n"
+                    f"Username: {instance_data['username']}\n"
+                    f"Your SSH private key can be downloaded from: {instance_data["key_url"]}",
+                )
+                logger.info("Server provisioning completed successfully")
+            except Exception as e:
+                logger.error(f"Error in server provisioning: {str(e)}")
+                logger.exception("Full traceback:")
+                client.chat_postMessage(
+                    channel=body["user_id"],
+                    text="❌ Server provisioning failed. Please try again.",
+                )
 
-#     except Exception as e:
-#         logger.error(f"Error handling server request: {str(e)}")
-#         client.chat_postEphemeral(
-#             channel=body["channel_id"],
-#             user=body["user_id"],
-#             text="🔧 Oops! Something went wrong setting up the server. Please try again.",
-#         )
+        thread = threading.Thread(target=provision_server)
+        thread.start()
+
+    except Exception as e:
+        logger.error(f"Error handling server request: {str(e)}")
+        client.chat_postEphemeral(
+            channel=body["channel_id"],
+            user=body["user_id"],
+            text="🔧 Oops! Something went wrong setting up the server. Please try again.",
+        )
 
 
 @app.view("submission")
