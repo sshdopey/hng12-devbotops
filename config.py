@@ -17,4 +17,4 @@ class Config:
     SLACK_APP_TOKEN = os.getenv("SLACK_APP_TOKEN")
     SLACK_SIGNING_SECRET = os.getenv("SLACK_SIGNING_SECRET")
     GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-    MAINTENANCE_MODE = bool(os.getenv("MAINTENANCE_MODE", False))
+    MAINTENANCE_MODE = bool(int(os.getenv("MAINTENANCE_MODE", "0")))
