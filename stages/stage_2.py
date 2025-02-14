@@ -12,7 +12,7 @@ class StageTwoBackend:
     channels = ["C08B6GUP4PQ"]
     next_channels = ["C08DA2RDPRN", "C08CR90L1NE"]
     required_score = 9
-    max_trials = 5
+    max_trials = 20
     deadline = wat_tz.localize(
         datetime.strptime("2025-02-14 23:59:59", "%Y-%m-%d %H:%M:%S")
     )
@@ -159,7 +159,7 @@ class StageTwoBackend:
                     client.chat_postEphemeral(
                         channel=channel,
                         user=user_id,
-                        text="❌ You have used all your attempts (5/5).",
+                        text="❌ You have used all your attempts (20/20).",
                     )
                     return
                 if score == "grading":
