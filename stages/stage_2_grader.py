@@ -33,7 +33,7 @@ class StageTwoGrader:
             self.installation.id
         )
         self.repo = self.github.get_repo(repo_name)
-        self.deployed_url = deployed_url.rstrip("/")
+        self.deployed_url = deployed_url
         self.original_main_content = None
 
     def _save_main_content(self):

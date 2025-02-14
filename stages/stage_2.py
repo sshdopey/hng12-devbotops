@@ -175,8 +175,8 @@ class StageTwoDevOps:
             values = body["view"]["state"]["values"]
             deployed_url = values["deployed_url"]["deployed_url"][
                 "value"
-            ].strip()
-            github_url = values["github_url"]["github_url"]["value"].strip()
+            ].strip().rstrip("/")
+            github_url = values["github_url"]["github_url"]["value"].strip().rstrip("/")
 
             for url, field in [
                 (deployed_url, "deployed_url"),
