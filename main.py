@@ -9,14 +9,14 @@ from server.aws import setup_aws_instance
 from spreadsheet import Sheet
 from stages.stage_0 import StageZero
 from stages.stage_1 import StageOne
-from stages.stage_2 import StageTwoBackend, StageTwoDevops
+from stages.stage_2 import StageTwoBackend, StageTwoDevOps
 from utils import get_stage
 
 app = App(
     token=Config.SLACK_BOT_TOKEN, signing_secret=Config.SLACK_SIGNING_SECRET
 )
 
-stages = {0: StageZero, 1: StageOne, 2: StageTwoDevops, 2.5: StageTwoBackend}
+stages = {0: StageZero, 1: StageOne, 2: StageTwoDevOps, 2.5: StageTwoBackend}
 
 
 @app.event("message")

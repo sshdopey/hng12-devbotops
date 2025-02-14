@@ -4,7 +4,6 @@ from typing import Optional
 from github import GithubIntegration
 from github.Auth import AppAuth
 import logging
-
 import requests
 
 
@@ -65,19 +64,34 @@ class StageTwoGrader:
                 raise
 
     def _wait_for_job(self, commit, job_name: str, timeout: int = 300) -> str:
-        """Wait for a specific GitHub Actions job to complete"""
+        """
+        Wait for a specific GitHub Actions job (by name) to complete.
+        A small initial delay is added to allow GitHub time to create the check run.
+        """
+        time.sleep(2)
         start = time.time()
         while time.time() - start < timeout:
             checks = commit.get_check_runs()
             for check in checks:
-                if check.name == job_name:
-                    if check.conclusion in ["success", "failure", "cancelled"]:
+                if check.name.lower() == job_name.lower():
+                    if check.status.lower() == "completed":
+                        logging.info(
+                            f"Job '{job_name}' completed with conclusion: {check.conclusion}"
+                        )
                         return check.conclusion
-            time.sleep(5)
+            time.sleep(3)
+        logging.warning(
+            f"Job '{job_name}' did not complete within the timeout period."
+        )
         return "timeout"
 
     def validate_initial_endpoint(self) -> ValidationResult:
-        """Validate the initial API endpoint setup"""
+        """
+        Validate that before any Stage 2 changes, the API:
+          - Is served using Nginx.
+          - Returns the expected book data on /api/v1/books/1.
+          - DOES NOT expose the /stage2 endpoint (should return 404).
+        """
         expected_book = {
             "id": 1,
             "title": "The Hobbit",
@@ -91,8 +105,8 @@ class StageTwoGrader:
             if "nginx" not in server:
                 return ValidationResult(
                     False,
-                    "Application must be served using Nginx",
-                    f"Server header indicates {server} is being used instead of nginx",
+                    "Server Misconfiguration",
+                    f"Expected Nginx, but the Server header indicates '{server}'. Please ensure Nginx is used.",
                 )
 
             books_response = requests.get(
@@ -101,68 +115,94 @@ class StageTwoGrader:
             if books_response.status_code != 200:
                 return ValidationResult(
                     False,
-                    "The books endpoint is not responding correctly",
-                    f"Got status code: {books_response.status_code}",
+                    "Books Endpoint Issue",
+                    f"Expected status code 200 for /api/v1/books/1, but got {books_response.status_code}.",
                 )
             if books_response.json() != expected_book:
                 return ValidationResult(
                     False,
-                    "The book data doesn't match the expected format",
-                    f"Expected: {expected_book}, Got: {books_response.json()}",
+                    "Book Data Mismatch",
+                    f"Expected: {expected_book}, but received: {books_response.json()}.",
                 )
 
             stage2_response = requests.get(f"{self.deployed_url}/stage2")
             if stage2_response.status_code != 404:
                 return ValidationResult(
                     False,
-                    "The /stage2 endpoint should return 404 initially",
-                    f"Got status code: {stage2_response.status_code}",
+                    "Unexpected /stage2 Availability",
+                    (
+                        f"The /stage2 endpoint should not be available before merging Stage 2 changes by the bot. "
+                        f"Expected a 404 Not Found response but got {stage2_response.status_code}."
+                    ),
                 )
             return ValidationResult(
-                True, "Initial API endpoints are correctly implemented"
+                True,
+                "Initial endpoints are configured correctly. Note: The /stage2 endpoint shouldn't be available until the bot merges.",
             )
         except requests.RequestException as e:
             return ValidationResult(
-                False, "Failed to connect to API endpoints", str(e)
+                False,
+                "API Connection Error",
+                f"An error occurred while connecting to the API: {str(e)}",
             )
 
     def test_bad_pr(self) -> ValidationResult:
-        """Test CI pipeline with invalid code"""
+        """
+        Create a pull request with deliberately bad code to ensure that
+        the CI pipeline detects and rejects invalid code.
+        """
         branch_name = f"test-bad-pr-{int(time.time())}"
         try:
             source = self.repo.get_branch("main")
             self.repo.create_git_ref(
                 f"refs/heads/{branch_name}", source.commit.sha
             )
+            file_contents = self.repo.get_contents("main.py", ref=branch_name)
             self.repo.update_file(
                 "main.py",
-                "Bad commit",
+                "Introduce invalid code to test CI",
                 "invalid code",
-                self.repo.get_contents("main.py", ref=branch_name).sha,
+                file_contents.sha,
                 branch_name,
             )
             pr = self.repo.create_pull(
-                title="Bad PR", body="", head=branch_name, base="main"
+                title="Bad PR - Testing CI failure",
+                body="",
+                head=branch_name,
+                base="main",
             )
-            commit = pr.get_commits().reversed[0]
+            time.sleep(3)
+            commit = list(pr.get_commits())[-1]
             result = self._wait_for_job(commit, "test")
+            if result == "failure":
+                return ValidationResult(
+                    True,
+                    "CI Pipeline Correctly Rejected Invalid Code",
+                    "The CI pipeline failed as expected when invalid code was submitted.",
+                )
             return ValidationResult(
-                result == "failure",
-                f"CI pipeline {'correctly rejected' if result == 'failure' else 'failed to reject'} invalid code",
-                "Your CI should fail when invalid code is submitted",
+                False,
+                "CI Pipeline Did Not Reject Invalid Code",
+                (
+                    f"Expected the CI to fail, but the check concluded with '{result}'. "
+                    "Ensure that your CI pipeline is properly configured to reject invalid code."
+                ),
             )
         except Exception as e:
             return ValidationResult(
-                False, "Failed to test CI pipeline with invalid code", str(e)
+                False, "Error Testing CI with Bad Code", str(e)
             )
         finally:
             try:
                 self.repo.get_git_ref(f"heads/{branch_name}").delete()
-            except:
+            except Exception:
                 pass
 
     def test_good_pr(self) -> ValidationResult:
-        """Test CI pipeline with valid code changes"""
+        """
+        Create a pull request with valid changes that add the /stage2 endpoint.
+        Verify that the CI pipeline passes and that the PR can be merged.
+        """
         branch_name = f"test-good-pr-{int(time.time())}"
         try:
             source = self.repo.get_branch("main")
@@ -179,77 +219,102 @@ async def stage2():
 """
             updated_content = content + new_route
 
+            file_contents = self.repo.get_contents("main.py", ref=branch_name)
             self.repo.update_file(
                 "main.py",
-                "Good commit",
+                "Add /stage2 endpoint for Stage 2",
                 updated_content,
-                self.repo.get_contents("main.py", ref=branch_name).sha,
+                file_contents.sha,
                 branch_name,
             )
             pr = self.repo.create_pull(
-                title="Good PR", body="", head=branch_name, base="main"
+                title="Good PR - Adding Stage 2",
+                body="",
+                head=branch_name,
+                base="main",
             )
-            commit = pr.get_commits().reversed[0]
+            time.sleep(3)
+            commit = list(pr.get_commits())[-1]
             result = self._wait_for_job(commit, "test")
             if result == "success":
                 pr.merge()
                 return ValidationResult(
                     True,
-                    "Valid code changes passed CI checks and were merged successfully",
+                    (
+                        "CI Pipeline Passed and Valid Changes Merged. "
+                        "Your code met the project standards and the /stage2 endpoint change is accepted."
+                    ),
                 )
             return ValidationResult(
                 False,
-                "CI pipeline failed for valid code changes",
-                f"Expected CI success but got: {result}",
+                "CI Pipeline Failed for Valid Code Changes",
+                f"Expected CI to pass but received a '{result}' conclusion. Please check your CI configuration.",
             )
         except Exception as e:
             return ValidationResult(
-                False, "Failed to test CI pipeline with valid code", str(e)
+                False, "Error Testing CI with Valid Code", str(e)
             )
         finally:
             try:
                 self.repo.get_git_ref(f"heads/{branch_name}").delete()
-            except:
+            except Exception:
                 pass
 
     def check_deployment(self) -> ValidationResult:
-        """Verify automatic deployment after merge"""
+        """
+        Verify that after merging the PR, the automatic deployment job completes successfully.
+        """
         try:
             time.sleep(10)
             latest_commit = self.repo.get_commits()[0]
             result = self._wait_for_job(latest_commit, "deploy")
+            if result == "success":
+                return ValidationResult(
+                    True,
+                    "Automatic Deployment Completed Successfully.",
+                    "Your deployment job finished with a 'success' status.",
+                )
             return ValidationResult(
-                result == "success",
-                f"Automatic deployment {'completed successfully' if result == 'success' else 'failed'}",
-                f"Deployment status: {result}",
+                False,
+                "Automatic Deployment Failed",
+                f"Deployment job concluded with status: '{result}'. Please investigate your deployment pipeline.",
             )
         except Exception as e:
             return ValidationResult(
-                False, "Failed to verify automatic deployment", str(e)
+                False, "Error Verifying Automatic Deployment", str(e)
             )
 
     def validate_deployed_endpoint(self) -> ValidationResult:
-        """Validate the newly deployed stage2 endpoint"""
+        """
+        After a successful deployment, verify that the /stage2 endpoint is available and returns
+        the correct welcome message.
+        """
         try:
+            time.sleep(3)
             response = requests.get(f"{self.deployed_url}/stage2")
             if response.status_code != 200:
                 return ValidationResult(
                     False,
-                    "Stage2 endpoint not found - deployment did not update",
-                    f"Status code: {response.status_code}",
+                    "Stage 2 Endpoint Not Available After Deployment",
+                    (
+                        f"Expected status code 200 for /stage2 after deployment, but received {response.status_code}. "
+                        "Ensure that your deployment job properly updates the deployed application."
+                    ),
                 )
 
             data = response.json()
             if data.get("message") == "welcome to stage 2":
                 return ValidationResult(
-                    True, "Stage2 endpoint successfully deployed and working"
+                    True,
+                    "Stage 2 Endpoint Successfully Deployed and Working.",
+                    "Your /stage2 endpoint returned the expected welcome message.",
                 )
             return ValidationResult(
                 False,
-                "Stage2 endpoint found but returned incorrect response",
-                f"Got: {data}",
+                "Incorrect Response from /stage2 Endpoint",
+                f"Expected message 'welcome to stage 2', but got: {data.get('message')}",
             )
         except requests.RequestException as e:
             return ValidationResult(
-                False, "Failed to check Stage2 endpoint", str(e)
+                False, "Error Connecting to Stage 2 Endpoint", str(e)
             )

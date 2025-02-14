@@ -7,17 +7,17 @@ from stages.stage_2_grader import StageTwoGrader
 from utils import check_url_uniqueness, handle_promotion
 
 
-class StageTwoBackend:
+class StageTwoDevOps:
     next_emoji = ":three:"
-    channels = ["C08B6GUP4PQ"]
-    next_channels = ["C08DA2RDPRN", "C08CR90L1NE"]
+    channels = ["C08AYKQ9AQ7"]
+    next_channels = ["C08CM5W329Z", "C08DA2RDPRN"]
     required_score = 9
     max_trials = 20
     deadline = wat_tz.localize(
         datetime.strptime("2025-02-14 23:59:59", "%Y-%m-%d %H:%M:%S")
     )
     sheet = Sheet(
-        "1Ah-HVmKHL4sEJCCKGnSGu-AXEZxPJ0ltDn7MCVIUH7Q",
+        "1ZA1b5xSTcZKjclGIXG4Ph5MT6BnsXrnu-2sMXaPHoY8",
         {
             "A": "timestamp",
             "B": "display_name",
@@ -220,6 +220,15 @@ class StageTwoBackend:
             grader = StageTwoGrader(repo_name, deployed_url)
             grader._save_main_content()
 
+            client.chat_postEphemeral(
+                channel=channel,
+                user=user_id,
+                text=f"🔄 Your submission has been received! Grading process is starting...\n"
+                f"• Monitor your repository: {github_url}\n"
+                "• Watch for bot activities to help debug any issues\n"
+                "• Please be patient while I evaluate your submission",
+            )
+
             score, result = self._grade_submission(grader)
             achieved = score >= self.required_score
 
@@ -275,11 +284,11 @@ class StageTwoBackend:
                 )
 
 
-class StageTwoDevops(StageTwoBackend):
-    channels = ["C08AYKQ9AQ7"]
-    next_channels = ["C08CM5W329Z", "C08DA2RDPRN"]
+class StageTwoBackend(StageTwoDevOps):
+    channels = ["C08B6GUP4PQ"]
+    next_channels = ["C08DA2RDPRN", "C08CR90L1NE"]
     sheet = Sheet(
-        "1ZA1b5xSTcZKjclGIXG4Ph5MT6BnsXrnu-2sMXaPHoY8",
+        "1Ah-HVmKHL4sEJCCKGnSGu-AXEZxPJ0ltDn7MCVIUH7Q",
         {
             "A": "timestamp",
             "B": "display_name",
