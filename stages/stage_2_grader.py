@@ -1,10 +1,12 @@
-from dataclasses import dataclass
 import time
+from dataclasses import dataclass
 from typing import Optional
+
+import requests
 from github import GithubIntegration
 from github.Auth import AppAuth
-import logging
-import requests
+
+from config import logger
 
 
 @dataclass
@@ -41,9 +43,9 @@ class StageTwoGrader:
             self.original_main_content = contents.decoded_content.decode(
                 "utf-8"
             )
-            logging.info("Saved original main.py content")
+            logger.info("Saved original main.py content")
         except Exception as e:
-            logging.error(f"Failed to save main.py: {e}")
+            logger.error(f"Failed to save main.py: {e}")
             raise
 
     def _restore_main_content(self):
@@ -58,9 +60,9 @@ class StageTwoGrader:
                     sha=contents.sha,
                     branch="main",
                 )
-                logging.info("Restored main.py")
+                logger.info("Restored main.py")
             except Exception as e:
-                logging.error(f"Failed to restore main.py: {e}")
+                logger.error(f"Failed to restore main.py: {e}")
                 raise
 
     def _wait_for_job(self, commit, job_name: str, timeout: int = 300) -> str:
@@ -68,19 +70,19 @@ class StageTwoGrader:
         Wait for a specific GitHub Actions job (by name) to complete.
         A small initial delay is added to allow GitHub time to create the check run.
         """
-        time.sleep(2)
         start = time.time()
         while time.time() - start < timeout:
             checks = commit.get_check_runs()
             for check in checks:
+                logger.info(f"Commit: {commit.sha}, Check: {check.name}, Status: {check.status}")
                 if check.name.lower() == job_name.lower():
                     if check.status.lower() == "completed":
-                        logging.info(
+                        logger.info(
                             f"Job '{job_name}' completed with conclusion: {check.conclusion}"
                         )
                         return check.conclusion
             time.sleep(3)
-        logging.warning(
+        logger.warning(
             f"Job '{job_name}' did not complete within the timeout period."
         )
         return "timeout"
@@ -265,7 +267,6 @@ async def stage2():
         Verify that after merging the PR, the automatic deployment job completes successfully.
         """
         try:
-            time.sleep(10)
             latest_commit = self.repo.get_commits()[0]
             result = self._wait_for_job(latest_commit, "deploy")
             if result == "success":
