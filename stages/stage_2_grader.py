@@ -75,7 +75,7 @@ class StageTwoGrader:
             checks = commit.get_check_runs()
             for check in checks:
                 logger.info(f"Commit: {commit.sha}, Check: {check.name}, Status: {check.status}")
-                if check.name.lower() == job_name.lower():
+                if job_name.lower() in check.name.lower():
                     if check.status.lower() == "completed":
                         logger.info(
                             f"Job '{job_name}' completed with conclusion: {check.conclusion}"
