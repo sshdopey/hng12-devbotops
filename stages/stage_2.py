@@ -14,7 +14,7 @@ class StageTwoDevOps:
     required_score = 9
     max_trials = 20
     deadline = wat_tz.localize(
-        datetime.strptime("2025-02-14 23:59:59", "%Y-%m-%d %H:%M:%S")
+        datetime.strptime("2025-02-16 05:59:59", "%Y-%m-%d %H:%M:%S")
     )
     sheet = Sheet(
         "1ZA1b5xSTcZKjclGIXG4Ph5MT6BnsXrnu-2sMXaPHoY8",
