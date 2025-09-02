@@ -58,26 +58,26 @@ export class GoogleSheetService {
       });
 
       const values = response.data.values ?? [];
-      
+
       for (let rowIndex = 0; rowIndex < values.length; rowIndex++) {
         const row = values[rowIndex] ?? [];
         const colIndex = columnLetter.charCodeAt(0) - 'A'.charCodeAt(0);
-        
+
         if (colIndex < row.length && row[colIndex] === searchValue) {
           const rowData: Record<string, string> = {};
-          
+
           for (const [letter, name] of Object.entries(this.config.columns)) {
             const index = letter.charCodeAt(0) - 'A'.charCodeAt(0);
-            rowData[name] = index < row.length ? row[index] ?? '' : '';
+            rowData[name] = index < row.length ? (row[index] ?? '') : '';
           }
-          
+
           return {
             rowNumber: rowIndex + 1,
             data: rowData,
           };
         }
       }
-      
+
       return null;
     } catch (error) {
       logger.error('Error getting row from sheet:', error);
@@ -99,7 +99,7 @@ export class GoogleSheetService {
         if (!(columnName in this.columnReverse)) {
           throw new Error(`Column ${columnName} not found in column mappings`);
         }
-        
+
         const columnLetter = this.columnReverse[columnName];
         const cell = `${columnLetter}${rowNumber}`;
         updates.push({ range: cell, values: [[value]] });
@@ -137,7 +137,7 @@ export class GoogleSheetService {
         if (!(columnName in this.columnReverse)) {
           throw new Error(`Column ${columnName} not found in column mappings`);
         }
-        
+
         const columnIndex = this.columnReverse[columnName]!.charCodeAt(0) - 'A'.charCodeAt(0);
         row[columnIndex] = value;
       }

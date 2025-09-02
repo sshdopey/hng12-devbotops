@@ -12,7 +12,7 @@ export abstract class BaseStage implements StageConfig {
   abstract readonly channels: readonly string[];
   abstract readonly nextChannels: readonly string[];
   abstract readonly requiredScore: number;
-  
+
   protected abstract readonly sheet: GoogleSheetService;
 
   /**
@@ -28,11 +28,7 @@ export abstract class BaseStage implements StageConfig {
   /**
    * Handle the complete submission flow including grading and promotion
    */
-  abstract submit(
-    channelId: string,
-    body: SlackSubmissionBody,
-    client: unknown
-  ): Promise<void>;
+  abstract submit(channelId: string, body: SlackSubmissionBody, client: unknown): Promise<void>;
 
   /**
    * Grade a submission and return score with details
@@ -105,7 +101,7 @@ export abstract class BaseStage implements StageConfig {
     };
 
     const existingSubmission = await this.sheet.getRow('user_id', userId);
-    
+
     if (existingSubmission) {
       await this.sheet.updateRow(existingSubmission.rowNumber, submissionData);
     } else {

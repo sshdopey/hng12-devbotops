@@ -17,7 +17,7 @@ interface CliOptions {
 
 function parseCliArgs(): CliOptions {
   const args = process.argv.slice(2);
-  
+
   if (args.length < 6 || !args.includes('--key') || !args.includes('--client')) {
     console.log(`
 Usage: tsx src/tools/github-check.ts <repo> --key <private-key-path> --client <client-id>
@@ -36,7 +36,7 @@ Example:
   const repo = args[0];
   const keyIndex = args.indexOf('--key');
   const clientIndex = args.indexOf('--client');
-  
+
   if (keyIndex === -1 || clientIndex === -1 || !args[keyIndex + 1] || !args[clientIndex + 1]) {
     console.error('Error: Missing required arguments');
     process.exit(1);
@@ -53,7 +53,7 @@ async function checkBotInstallation(options: CliOptions): Promise<void> {
   try {
     // Load private key
     const privateKey = readFileSync(options.key, 'utf8');
-    
+
     // Parse repository
     const [owner, repo] = options.repo.split('/');
     if (!owner || !repo) {
@@ -61,12 +61,6 @@ async function checkBotInstallation(options: CliOptions): Promise<void> {
     }
 
     // Create GitHub App authentication
-    const auth = createAppAuth({
-      appId: options.client,
-      privateKey,
-    });
-
-    // Create Octokit instance
     const octokit = new Octokit({
       authStrategy: createAppAuth,
       auth: {
@@ -81,10 +75,12 @@ async function checkBotInstallation(options: CliOptions): Promise<void> {
         owner,
         repo,
       });
-      
-      console.log(`✅ Bot is installed on ${options.repo} (Installation ID: ${installation.data.id})`);
-    } catch (error: any) {
-      if (error.status === 404) {
+
+      console.log(
+        `✅ Bot is installed on ${options.repo} (Installation ID: ${installation.data.id})`
+      );
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'status' in error && error.status === 404) {
         console.log(`❌ Bot is NOT installed on ${options.repo}`);
       } else {
         throw error;

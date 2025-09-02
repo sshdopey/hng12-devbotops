@@ -22,19 +22,17 @@ export const logger = createLogger({
     format.timestamp(),
     format.errors({ stack: true }),
     format.json(),
-    ...(env.NODE_ENV !== 'production'
-      ? [format.colorize(), format.simple()]
-      : [])
+    ...(env.NODE_ENV !== 'production' ? [format.colorize(), format.simple()] : [])
   ),
   transports: [
     new transports.Console(),
-    new transports.File({ 
-      filename: 'logs/error.log', 
+    new transports.File({
+      filename: 'logs/error.log',
       level: 'error',
       handleExceptions: true,
       handleRejections: true,
     }),
-    new transports.File({ 
+    new transports.File({
       filename: 'logs/combined.log',
       handleExceptions: true,
       handleRejections: true,

@@ -1,16 +1,14 @@
 import { URL } from 'node:url';
 import { logger } from '@/config';
-import type {
-  SubmissionData,
-  StageConfig,
-  SlackSubmissionBody,
-  ValidationError,
-} from '@/types';
+import type { SubmissionData, StageConfig, SlackSubmissionBody } from '@/types';
 
 /**
  * Get the stage instance for a given channel
  */
-export function getStage(stages: Record<number, new () => StageConfig>, channel: string): StageConfig | null {
+export function getStage(
+  stages: Record<number, new () => StageConfig>,
+  channel: string
+): StageConfig | null {
   for (const StageClass of Object.values(stages)) {
     const stageInstance = new StageClass();
     if (stageInstance.channels.includes(channel)) {
@@ -50,7 +48,11 @@ export async function handlePromotion(
     };
     users: {
       profile: {
-        set: (params: { user: string; profile: { status_emoji: string }; token?: string }) => Promise<void>;
+        set: (params: {
+          user: string;
+          profile: { status_emoji: string };
+          token?: string;
+        }) => Promise<void>;
       };
     };
   },
@@ -106,7 +108,10 @@ export async function handlePromotion(
  */
 export async function checkUrlUniqueness(
   sheet: {
-    getRow: (column: string, value: string) => Promise<{ rowNumber: number; data: Record<string, string> } | null>;
+    getRow: (
+      column: string,
+      value: string
+    ) => Promise<{ rowNumber: number; data: Record<string, string> } | null>;
   },
   url: string,
   userId: string,
@@ -114,7 +119,7 @@ export async function checkUrlUniqueness(
 ): Promise<{ isUnique: boolean; errorMessage: string }> {
   try {
     const submission = await sheet.getRow(field, url);
-    
+
     if (submission && submission.data.user_id !== userId) {
       const fieldName = field === 'deployed_url' ? 'API endpoint' : 'GitHub repository';
       return {
@@ -122,7 +127,7 @@ export async function checkUrlUniqueness(
         errorMessage: `This ${fieldName} has already been submitted by another intern.`,
       };
     }
-    
+
     return { isUnique: true, errorMessage: '' };
   } catch (error) {
     logger.error(`Error checking URL uniqueness for field ${field}:`, error);
@@ -154,14 +159,14 @@ export function validateSubmission(
   requiredFields: readonly string[]
 ): { isValid: boolean; errors: string[] } {
   const errors: string[] = [];
-  
+
   for (const field of requiredFields) {
     const fieldValue = values[field]?.[field]?.value;
     if (!fieldValue?.trim()) {
       errors.push(`${field.replace('_', ' ')} is required`);
     }
   }
-  
+
   return {
     isValid: errors.length === 0,
     errors,
@@ -200,22 +205,22 @@ export async function retryWithBackoff<T>(
   baseDelayMs: number = 1000
 ): Promise<T> {
   let lastError: Error;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn();
     } catch (error) {
       lastError = error instanceof Error ? error : new Error(String(error));
-      
+
       if (attempt === maxRetries) {
         break;
       }
-      
+
       const delay = baseDelayMs * Math.pow(2, attempt - 1);
       logger.warn(`Attempt ${attempt} failed, retrying in ${delay}ms:`, lastError.message);
       await sleep(delay);
     }
   }
-  
+
   throw lastError!;
 }

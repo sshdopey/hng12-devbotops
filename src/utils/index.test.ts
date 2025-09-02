@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { cleanUrl, formatTimestamp } from '../utils';
 
 // Mock the config module to avoid environment validation during tests

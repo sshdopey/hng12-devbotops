@@ -14,9 +14,9 @@ export class AwsService {
 
   constructor(private readonly config: AwsInstanceConfig = {}) {
     const region = config.region ?? Config.aws.region;
-    
+
     AWS.config.update({ region });
-    
+
     this.ec2 = new AWS.EC2({ region });
     this.s3 = new AWS.S3({ region });
   }
@@ -27,13 +27,15 @@ export class AwsService {
   private async uploadKeyToS3(keyMaterial: string, keyName: string): Promise<string> {
     try {
       const keyPath = `keys/${keyName}.pem`;
-      
-      await this.s3.putObject({
-        Bucket: Config.aws.s3Bucket,
-        Key: keyPath,
-        Body: keyMaterial,
-        ContentType: 'text/plain',
-      }).promise();
+
+      await this.s3
+        .putObject({
+          Bucket: Config.aws.s3Bucket,
+          Key: keyPath,
+          Body: keyMaterial,
+          ContentType: 'text/plain',
+        })
+        .promise();
 
       const url = this.s3.getSignedUrl('getObject', {
         Bucket: Config.aws.s3Bucket,
@@ -55,25 +57,28 @@ export class AwsService {
    */
   private async getUbuntuAmi(): Promise<string> {
     try {
-      const result = await this.ec2.describeImages({
-        Filters: [
-          {
-            Name: 'name',
-            Values: ['ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*'],
-          },
-          { Name: 'state', Values: ['available'] },
-          { Name: 'architecture', Values: ['x86_64'] },
-        ],
-        Owners: ['099720109477'], // Canonical
-      }).promise();
+      const result = await this.ec2
+        .describeImages({
+          Filters: [
+            {
+              Name: 'name',
+              Values: ['ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-server-*'],
+            },
+            { Name: 'state', Values: ['available'] },
+            { Name: 'architecture', Values: ['x86_64'] },
+          ],
+          Owners: ['099720109477'], // Canonical
+        })
+        .promise();
 
       const images = result.Images ?? [];
       if (images.length === 0) {
         throw new Error('No Ubuntu AMIs found');
       }
 
-      const latestImage = images
-        .sort((a, b) => new Date(b.CreationDate ?? 0).getTime() - new Date(a.CreationDate ?? 0).getTime())[0];
+      const latestImage = images.sort(
+        (a, b) => new Date(b.CreationDate ?? 0).getTime() - new Date(a.CreationDate ?? 0).getTime()
+      )[0];
 
       if (!latestImage?.ImageId) {
         throw new Error('No valid Ubuntu AMI found');
@@ -94,9 +99,11 @@ export class AwsService {
   private async ensureSecurityGroup(groupName: string = 'default-sg'): Promise<string> {
     try {
       // Get default VPC
-      const vpcResult = await this.ec2.describeVpcs({
-        Filters: [{ Name: 'isDefault', Values: ['true'] }],
-      }).promise();
+      const vpcResult = await this.ec2
+        .describeVpcs({
+          Filters: [{ Name: 'isDefault', Values: ['true'] }],
+        })
+        .promise();
 
       const defaultVpc = vpcResult.Vpcs?.[0];
       if (!defaultVpc?.VpcId) {
@@ -105,9 +112,11 @@ export class AwsService {
 
       // Check if security group exists
       try {
-        const sgResult = await this.ec2.describeSecurityGroups({
-          Filters: [{ Name: 'group-name', Values: [groupName] }],
-        }).promise();
+        const sgResult = await this.ec2
+          .describeSecurityGroups({
+            Filters: [{ Name: 'group-name', Values: [groupName] }],
+          })
+          .promise();
 
         const existingSg = sgResult.SecurityGroups?.[0];
         if (existingSg?.GroupId) {
@@ -118,11 +127,13 @@ export class AwsService {
       }
 
       // Create security group
-      const createResult = await this.ec2.createSecurityGroup({
-        GroupName: groupName,
-        Description: 'Security group for EC2 instances',
-        VpcId: defaultVpc.VpcId,
-      }).promise();
+      const createResult = await this.ec2
+        .createSecurityGroup({
+          GroupName: groupName,
+          Description: 'Security group for EC2 instances',
+          VpcId: defaultVpc.VpcId,
+        })
+        .promise();
 
       const securityGroupId = createResult.GroupId;
       if (!securityGroupId) {
@@ -130,17 +141,19 @@ export class AwsService {
       }
 
       // Add SSH access rule
-      await this.ec2.authorizeSecurityGroupIngress({
-        GroupId: securityGroupId,
-        IpPermissions: [
-          {
-            IpProtocol: 'tcp',
-            FromPort: 22,
-            ToPort: 22,
-            IpRanges: [{ CidrIp: '0.0.0.0/0' }],
-          },
-        ],
-      }).promise();
+      await this.ec2
+        .authorizeSecurityGroupIngress({
+          GroupId: securityGroupId,
+          IpPermissions: [
+            {
+              IpProtocol: 'tcp',
+              FromPort: 22,
+              ToPort: 22,
+              IpRanges: [{ CidrIp: '0.0.0.0/0' }],
+            },
+          ],
+        })
+        .promise();
 
       return securityGroupId;
     } catch (error) {
@@ -161,7 +174,7 @@ export class AwsService {
     try {
       logger.info('Creating key pair...');
       const keyPair = await this.ec2.createKeyPair({ KeyName: keyName }).promise();
-      
+
       if (!keyPair.KeyMaterial) {
         throw new Error('No key material returned from AWS');
       }
@@ -173,17 +186,19 @@ export class AwsService {
       const amiId = await this.getUbuntuAmi();
 
       logger.info('Ensuring security group...');
-      const securityGroupId = this.config.securityGroupId ?? await this.ensureSecurityGroup();
+      const securityGroupId = this.config.securityGroupId ?? (await this.ensureSecurityGroup());
 
       logger.info('Launching EC2 instance...');
-      const instanceResult = await this.ec2.runInstances({
-        ImageId: amiId,
-        InstanceType: this.config.instanceType ?? Config.aws.defaultInstanceType,
-        SecurityGroupIds: [securityGroupId],
-        KeyName: keyName,
-        MinCount: 1,
-        MaxCount: 1,
-      }).promise();
+      const instanceResult = await this.ec2
+        .runInstances({
+          ImageId: amiId,
+          InstanceType: this.config.instanceType ?? Config.aws.defaultInstanceType,
+          SecurityGroupIds: [securityGroupId],
+          KeyName: keyName,
+          MinCount: 1,
+          MaxCount: 1,
+        })
+        .promise();
 
       const instance = instanceResult.Instances?.[0];
       if (!instance?.InstanceId) {
@@ -191,14 +206,18 @@ export class AwsService {
       }
 
       logger.info(`Waiting for instance ${instance.InstanceId} to be running...`);
-      await this.ec2.waitFor('instanceRunning', {
-        InstanceIds: [instance.InstanceId],
-      }).promise();
+      await this.ec2
+        .waitFor('instanceRunning', {
+          InstanceIds: [instance.InstanceId],
+        })
+        .promise();
 
       logger.info('Getting instance public IP...');
-      const describeResult = await this.ec2.describeInstances({
-        InstanceIds: [instance.InstanceId],
-      }).promise();
+      const describeResult = await this.ec2
+        .describeInstances({
+          InstanceIds: [instance.InstanceId],
+        })
+        .promise();
 
       const runningInstance = describeResult.Reservations?.[0]?.Instances?.[0];
       if (!runningInstance?.PublicIpAddress) {
@@ -215,15 +234,16 @@ export class AwsService {
 
       logger.info('EC2 instance setup completed successfully:', result);
       return result;
-
     } catch (error) {
       // Cleanup on failure
       try {
         await this.ec2.deleteKeyPair({ KeyName: keyName }).promise();
-        await this.s3.deleteObject({
-          Bucket: Config.aws.s3Bucket,
-          Key: `keys/${keyName}.pem`,
-        }).promise();
+        await this.s3
+          .deleteObject({
+            Bucket: Config.aws.s3Bucket,
+            Key: `keys/${keyName}.pem`,
+          })
+          .promise();
       } catch (cleanupError) {
         logger.error('Error during cleanup:', cleanupError);
       }
@@ -276,21 +296,25 @@ export class AwsService {
 
     // Cleanup S3 keys
     try {
-      const s3Objects = await this.s3.listObjectsV2({
-        Bucket: Config.aws.s3Bucket,
-        Prefix: 'keys/',
-      }).promise();
+      const s3Objects = await this.s3
+        .listObjectsV2({
+          Bucket: Config.aws.s3Bucket,
+          Prefix: 'keys/',
+        })
+        .promise();
 
       if (s3Objects.Contents) {
-        const deleteObjects = s3Objects.Contents
-          .filter(obj => obj.Key)
-          .map(obj => ({ Key: obj.Key! }));
+        const deleteObjects = s3Objects.Contents.filter(obj => obj.Key).map(obj => ({
+          Key: obj.Key!,
+        }));
 
         if (deleteObjects.length > 0) {
-          await this.s3.deleteObjects({
-            Bucket: Config.aws.s3Bucket,
-            Delete: { Objects: deleteObjects },
-          }).promise();
+          await this.s3
+            .deleteObjects({
+              Bucket: Config.aws.s3Bucket,
+              Delete: { Objects: deleteObjects },
+            })
+            .promise();
           logger.info('Cleaned up keys from S3');
         }
       }

@@ -3,13 +3,7 @@ import { BaseStage } from './base-stage';
 import { GoogleSheetService } from '@/services/google-sheets';
 import { logger, Config } from '@/config';
 import { handlePromotion, checkUrlUniqueness, extractSubmissionData } from '@/utils';
-import type {
-  StageResult,
-  SlackModalView,
-  SlackSubmissionBody,
-  SubmissionData,
-  ExternalServiceError,
-} from '@/types';
+import type { StageResult, SlackModalView, SlackSubmissionBody, SubmissionData } from '@/types';
 
 interface StageZeroResult {
   readonly deployedValid: boolean;
@@ -101,7 +95,7 @@ export class StageZero extends BaseStage {
   async submit(
     channelId: string,
     body: SlackSubmissionBody,
-    client: any // Using any for now due to complex Slack client typing
+    client: unknown // Using unknown for now due to complex Slack client typing
   ): Promise<void> {
     try {
       const submissionData = extractSubmissionData(body);
@@ -109,7 +103,7 @@ export class StageZero extends BaseStage {
 
       // Check if already promoted
       if (await this.checkIfAlreadyPromoted(userId)) {
-        await client.chat.postEphemeral({
+        await (client as any).chat.postEphemeral({
           channel: channelId,
           user: userId,
           text: '🎉 You have already passed Stage 0! No need to submit again.',
@@ -123,7 +117,7 @@ export class StageZero extends BaseStage {
       const blogUrl = values.blog_url?.blog_url?.value;
 
       if (!deployedUrl || !blogUrl) {
-        await client.chat.postEphemeral({
+        await (client as any).chat.postEphemeral({
           channel: channelId,
           user: userId,
           text: '❌ Both deployed URL and blog URL are required.',
@@ -142,9 +136,9 @@ export class StageZero extends BaseStage {
           userId,
           urlType
         );
-        
+
         if (!isUnique) {
-          await client.chat.postEphemeral({
+          await (client as any).chat.postEphemeral({
             channel: channelId,
             user: userId,
             text: `❌ ${errorMessage}`,
@@ -180,7 +174,7 @@ export class StageZero extends BaseStage {
       if (promoted) {
         // Handle promotion
         await handlePromotion(
-          client,
+          client as any,
           userId,
           this.channels,
           this.nextChannels,
@@ -193,12 +187,12 @@ export class StageZero extends BaseStage {
           .map(ch => `<#${ch}>`)
           .join(', ');
 
-        await client.chat.postMessage({
+        await (client as any).chat.postMessage({
           channel: userId,
           text: `${message}\n\n🚀 Access granted to: ${newChannels}`,
         });
       } else {
-        await client.chat.postEphemeral({
+        await (client as any).chat.postEphemeral({
           channel: channelId,
           user: userId,
           text: message,
@@ -206,7 +200,7 @@ export class StageZero extends BaseStage {
       }
     } catch (error) {
       logger.error('Stage 0 submission error:', error);
-      await client.chat.postEphemeral({
+      await (client as any).chat.postEphemeral({
         channel: channelId,
         user: body.user.id,
         text: '🚨 An error occurred while processing your submission. Please try again or contact support.',
@@ -220,7 +214,7 @@ export class StageZero extends BaseStage {
 
   protected async gradeSubmission(data: SubmissionData): Promise<StageResult> {
     const { deployedUrl, blogUrl } = data.values as { deployedUrl: string; blogUrl: string };
-    
+
     let score = 0;
     let details: StageZeroResult = {
       deployedValid: false,
@@ -247,7 +241,7 @@ export class StageZero extends BaseStage {
 
       const server = deployedResult.response?.headers?.get('server') ?? 'Unknown';
       details = { ...details, server };
-      
+
       if (server.toLowerCase().includes('nginx')) {
         details = { ...details, nginxPresent: true };
         score += 1;
@@ -278,7 +272,10 @@ export class StageZero extends BaseStage {
     };
   }
 
-  private async fetchUrlContent(url: string, timeout: number = 15000): Promise<{
+  private async fetchUrlContent(
+    url: string,
+    timeout: number = 15000
+  ): Promise<{
     success: boolean;
     content: string;
     error?: string;
@@ -360,7 +357,7 @@ export class StageZero extends BaseStage {
       if (!details.backlinkPresent) {
         lines.push('• Include at least one of the provided backlinks in your blog post');
       }
-      lines.push('\n💡 Resubmit when you\'ve made these improvements!');
+      lines.push("\n💡 Resubmit when you've made these improvements!");
     } else {
       lines.push(
         `🎉 Congratulations! You've completed Stage 0 in ${trials} ${
