@@ -1,6 +1,24 @@
+# Python artifacts
 .venv
 .env
 __pycache__
-*.json
 venv
+
+# Node.js artifacts  
+node_modules/
+dist/
+logs/
+*.log
+.env.local
+.env.*.local
+.nyc_output
+coverage/
+
+# Credentials and keys
+*.json
 *.pem
+token.json
+
+# OS artifacts
+.DS_Store
+Thumbs.db
