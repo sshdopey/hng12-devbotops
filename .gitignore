@@ -15,9 +15,8 @@ logs/
 coverage/
 
 # Credentials and keys
-*.json
-*.pem
 token.json
+*.pem
 
 # OS artifacts
 .DS_Store

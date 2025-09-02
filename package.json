@@ -1,0 +1,61 @@
+{
+  "name": "hng12-devbotops",
+  "version": "1.0.0",
+  "description": "HNG12 DevOps Stage Management Bot - TypeScript Edition",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc && tsc-alias",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "test:ui": "vitest --ui",
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write src/**/*.ts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rimraf dist",
+    "github-check": "tsx src/tools/github-check.ts",
+    "aws-cleanup": "tsx -e \"import('./src/services/aws.js').then(m => new m.AwsService().destroyAllInstances())\""
+  },
+  "keywords": [
+    "slack",
+    "bot",
+    "devops",
+    "hng",
+    "typescript"
+  ],
+  "author": "HNG Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "@vitest/coverage-v8": "^2.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^9.0.0",
+    "eslint-plugin-prettier": "^5.0.0",
+    "prettier": "^3.0.0",
+    "rimraf": "^6.0.0",
+    "tsc-alias": "^1.8.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.5.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "^7.2.2",
+    "@octokit/rest": "^21.1.1",
+    "@slack/bolt": "^3.20.0",
+    "@slack/web-api": "^7.5.0",
+    "aws-sdk": "^2.1691.0",
+    "dotenv": "^16.4.0",
+    "googleapis": "^144.0.0",
+    "node-fetch": "^3.3.0",
+    "winston": "^3.14.0",
+    "zod": "^3.23.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
